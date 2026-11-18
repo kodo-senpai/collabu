@@ -293,14 +293,17 @@ declare
   v_name text;
   v_initials text;
 begin
-  v_name := coalesce(
+  v_name := trim(regexp_replace(coalesce(
     nullif(new.raw_user_meta_data ->> 'name', ''),
     nullif(new.raw_user_meta_data ->> 'full_name', ''),
     split_part(coalesce(new.email, 'student'), '@', 1)
-  );
+  ), '[[:space:]]+', ' ', 'g'));
   v_initials := coalesce(
     nullif(new.raw_user_meta_data ->> 'initials', ''),
-    upper(left(regexp_replace(v_name, '[[:space:]]+', ' ', 'g'), 2))
+    upper(
+      left(split_part(v_name, ' ', 1), 1) ||
+      left(coalesce(nullif(split_part(v_name, ' ', 2), ''), ''), 1)
+    )
   );
 
   insert into public.profiles (id, name, initials, college, avatar_url)

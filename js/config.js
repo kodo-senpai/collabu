@@ -7,8 +7,8 @@
  *    Row Level Security is the real security boundary.
  */
 window.COLLABU_CONFIG = {
-  SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY",
+  SUPABASE_URL: "https://ffxgsnwbraangtxxukgt.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmeGdzbndicmFhbmd0eHh1a2d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwMjM4NjksImV4cCI6MjExMDU5OTg2OX0.KOeFxJJfUGn3nuy3_71P3UdzIg1N4Gr9Ky3uxFaZ2Fo",
 
   // Google OAuth redirect (must match Supabase Auth > URL Configuration).
   GOOGLE_REDIRECT: window.location.origin,
