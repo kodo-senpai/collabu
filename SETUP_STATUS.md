@@ -50,13 +50,23 @@
 - Supabase Auth: configured — Site URL = `https://collabu-orpin.vercel.app`,
   redirects include `https://collabu-orpin.vercel.app/**`.
 
+## Google OAuth
+
+- Provider: enabled in Supabase.
+- Client ID: `36492008200-a5f2cegibbrvp1r93ft986a7pojjq0v7.apps.googleusercontent.com`
+- Authorized redirect URI (Google Cloud):
+  `https://ffxgsnwbraangtxxukgt.supabase.co/auth/v1/callback`
+- Verified: `GET /auth/v1/authorize?provider=google` returns 302 to
+  `accounts.google.com` with the correct client ID and callback.
+
 ## Not configured yet
 
-- Google OAuth (requires a Google Cloud OAuth client + Supabase Google provider).
+- Nothing required. Google login is ready to test in the browser.
 
 ## Next steps
 
-1. Configure Google OAuth in Supabase if you want social login.
+1. Test "Continue with Google" in the browser. If Google shows an error, publish
+   the OAuth consent screen or add your Google account as a test user.
 2. Create your real account through the app (the database is clean).
 3. Note: Supabase free projects pause after 7 days of inactivity; open the
    dashboard to restore.
