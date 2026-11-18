@@ -1,0 +1,26 @@
+{
+  "name": "CollabU — Where Student Ideas Meet Real Teams",
+  "short_name": "CollabU",
+  "description": "Cross-college student collaboration ecosystem where student ideas meet real teams.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F6F4",
+  "theme_color": "#9AE61B",
+  "categories": ["education", "social", "productivity"],
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
