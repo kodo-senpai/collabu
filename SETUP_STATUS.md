@@ -47,17 +47,27 @@
 - The `handle_new_user` trigger created the profile with correct initials.
 - 4 demo projects load with members, tasks, messages, and resources.
 
+## Public deployment (Vercel)
+
+- Production URL: `https://collabu-orpin.vercel.app`
+- Project: `shiori6/collabu`
+- GitHub auto-deploy: pending (connect GitHub in Vercel → Settings → Login Connections)
+- Supabase Auth: set Site URL to `https://collabu-orpin.vercel.app` and add
+  `https://collabu-orpin.vercel.app/**` to Redirect URLs.
+
 ## Not configured yet
 
 - Google OAuth (requires a Google Cloud OAuth client + Supabase Google provider).
-- Vercel deployment.
-- GitHub remote push (needs the repository URL).
+- GitHub → Vercel auto-deploy (needs a GitHub login connection on the Vercel account).
 
 ## Next steps
 
 1. Change the demo password or delete the demo user before sharing the app publicly.
-2. Configure Google OAuth in Supabase if you want social login.
-3. Create a GitHub repository and push this repo.
-4. Import the repo into Vercel (no build command) to get a public HTTPS URL.
+2. In Vercel → Settings → Login Connections, connect GitHub, then run
+   `vercel git connect` (or connect the repo in the project settings) to enable
+   auto-deploys on every push.
+3. In Supabase → Authentication → URL Configuration, set the Site URL to
+   `https://collabu-orpin.vercel.app` and add it to Redirect URLs.
+4. Configure Google OAuth in Supabase if you want social login.
 5. Note: Supabase free projects pause after 7 days of inactivity; open the
    dashboard to restore.
