@@ -287,9 +287,60 @@ async function markAllNotificationsRead() {
 
 /* --------------------------------------------------------------- renderers */
 
+function getCollegeCounts() {
+  const map = {};
+  const add = (raw) => {
+    const name = String(raw || "").trim();
+    if (!name || name.toLowerCase() === "hidden") return;
+    const key = name.toLowerCase();
+    if (!map[key]) map[key] = { name, count: 0 };
+    map[key].count += 1;
+  };
+  if (state.user && state.user.college) add(state.user.college);
+  state.students.forEach((s) => add(s.college));
+  const result = {};
+  Object.values(map).forEach((v) => {
+    result[v.name] = (result[v.name] || 0) + v.count;
+  });
+  return result;
+}
+
+function renderHomeStats() {
+  const ideas = state.projects.length;
+  const builders = state.students.length + (state.user ? 1 : 0);
+  const colleges = getCollegeCounts();
+  const collegeCount = Object.keys(colleges).length;
+
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = Number(value).toLocaleString();
+  };
+  setText("statIdeas", ideas);
+  setText("statColleges", collegeCount);
+  setText("statBuilders", builders);
+
+  const strip = document.getElementById("collegeStrip");
+  if (!strip) return;
+
+  const entries = Object.entries(colleges)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5);
+
+  if (!entries.length) {
+    strip.innerHTML = '<span class="text-muted">Your campus could be next.</span>';
+    return;
+  }
+
+  strip.innerHTML = entries
+    .map(
+      ([name, count]) =>
+        `<span class="flex items-center gap-1.5"><span class="w-5 h-5 rounded bg-gray-200/80 inline-flex items-center justify-center text-[10px]">🏛</span> ${escapeHtml(name)}${count > 1 ? ` <span class="text-limeu-dark">(${count})</span>` : ""}</span>`
+    )
+    .join("");
+}
+
 function renderHome() {
-  const stat = document.getElementById("statIdeas");
-  if (stat) stat.textContent = 495 + state.projects.length + "+";
+  renderHomeStats();
 
   const featured = state.projects.filter((p) => p.featured).slice(0, 3);
   const grid = document.getElementById("homeFeaturedGrid");

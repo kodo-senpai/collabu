@@ -105,7 +105,6 @@ project/
 ├── supabase/
 │   ├── schema.sql              # Tables, indexes, RLS, triggers, storage, realtime
 │   ├── seed.sql                # Communities + events
-│   └── demo-data.sql           # Optional sample projects for the first profile
 └── collabu_where_student_ideas_meet_real_teams.html  # Original prototype (untouched)
 ```
 
@@ -219,8 +218,8 @@ who is not a member cannot read chat, tasks, or resources even with a crafted qu
 1. Open **SQL Editor → New query**.
 2. Paste the entire contents of `supabase/schema.sql` and run it.
 3. Run `supabase/seed.sql` to add communities and events.
-4. (Optional) After you create your first account, run `supabase/demo-data.sql` to
-   populate sample projects for that profile.
+4. Create your account through the app. The database starts clean — no demo users
+   or sample projects are inserted.
 
 ### 6.3 Configure authentication
 
@@ -229,14 +228,22 @@ who is not a member cannot read chat, tasks, or resources even with a crafted qu
    - **Site URL**: `http://localhost:3000` for local dev.
    - **Redirect URLs**: add `http://localhost:3000/**` and your production URL
      (e.g. `https://collabu.vercel.app/**`).
-3. **Google OAuth** (optional but recommended):
-   - Google Cloud Console → **APIs & Services → OAuth consent screen** (External,
-     add yourself as a test user).
+3. **Google OAuth** (free — recommended):
+   - Google Cloud Console → create/select a project.
+   - **APIs & Services → OAuth consent screen** → External → app name, support
+     email → scopes `email`, `profile`, `openid` → add test users. No billing is
+     required for these scopes.
    - **Credentials → Create OAuth client ID → Web application**.
    - **Authorized redirect URI**:
-     `https://<PROJECT-REF>.supabase.co/auth/v1/callback`
-   - Copy Client ID + Secret into Supabase **Authentication → Providers → Google**.
-   - Enable the provider.
+     `https://ffxgsnwbraangtxxukgt.supabase.co/auth/v1/callback`
+     (for another project: `https://<PROJECT-REF>.supabase.co/auth/v1/callback`).
+   - Copy Client ID + Secret into Supabase **Authentication → Providers → Google**
+     and enable the provider.
+   - The app's "Continue with Google" button already calls `signInWithOAuth` and
+     handles OAuth errors and redirects.
+   - For public signups, publish the OAuth consent screen (Testing mode allows 100
+     test users). The `email`/`profile`/`openid` scopes do not require Google
+     verification.
 
 ### 6.4 Configure the frontend
 
@@ -289,10 +296,18 @@ collaboration (chat, tasks, applications, notifications).
   session.
 - `enterApp(user)` removes the `auth-locked` body class and calls `app.js:start()`.
 - `exitApp()` re-locks the app and calls `app.js:stop()`.
+- Flows: **login**, **signup** (name/college/email/password/confirm + terms),
+  **forgot password**, **password recovery**, and **resend confirmation**.
+- Signup enforces ≥8 characters with a number or symbol, matching passwords, a
+  valid email, and accepted guidelines; a live strength meter and show/hide toggle
+  are included.
 - `signUp` passes `options.data` (`name`, `college`) so the `handle_new_user` trigger
-  can seed the profile.
-- `signInWithOAuth({ provider: "google" })` redirects to Google and returns to
-  `GOOGLE_REDIRECT`.
+  can seed the profile, and `emailRedirectTo` so confirmation links return to the app.
+- `signInWithOAuth({ provider: "google" })` redirects to Google; OAuth errors are
+  captured in `supabase.js` before the SDK consumes the URL and shown in the gate.
+- `PASSWORD_RECOVERY` is handled via the `type=recovery` URL flag and the
+  `PASSWORD_RECOVERY` auth event, so a recovery link opens the reset form instead of
+  the app.
 - `signOutApp()` calls `Auth.signOut()`.
 
 ### 7.2 Protected routes — `js/app.js`
@@ -472,12 +487,11 @@ git push -u origin main
 | `js/config.js` | Supabase URL, anon key, Google redirect. **Edit this first.** |
 | `js/supabase.js` | Creates the singleton client (`window.sb`). |
 | `js/api.js` | Every database call; shapes rows for the UI. |
-| `js/auth.js` | Auth gate UI, email/password, Google OAuth, session restore, sign-out. |
+| `js/auth.js` | Auth gate: login, signup, forgot password, recovery, resend, Google OAuth, session restore, sign-out. |
 | `js/realtime.js` | Single Supabase channel fanning out table changes. |
 | `js/app.js` | State cache, renderers, async mutations, hash routing, PWA registration. |
 | `supabase/schema.sql` | Tables, indexes, RLS, triggers, RPC, storage, realtime publication. |
 | `supabase/seed.sql` | Communities + events. |
-| `supabase/demo-data.sql` | Optional sample projects for the first profile. |
 | `sw.js` | Offline app shell; never caches Supabase. |
 | `manifest.webmanifest` | Installable PWA metadata. |
 | `vercel.json` | Static hosting + headers. |

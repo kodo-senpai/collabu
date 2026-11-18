@@ -744,10 +744,10 @@ create policy storage_avatars_delete on storage.objects
 -- ============================================================================
 
 insert into public.communities (name, focus, member_count) values
-  ('AI & Open-Source Builders', 'LLMs, Computer Vision, Kaggle, Research', 840),
-  ('Campus Founders Circle', 'MVPs, Pitch Decks, Co-Founder Matching', 520),
-  ('Robotics & Hardware Lab', 'ROS2, Drones, IoT, PCB Design', 310),
-  ('Design & Creative Technologists', 'UI/UX, Figma, WebGL, Indie Games', 460)
+  ('AI & Open-Source Builders', 'LLMs, Computer Vision, Kaggle, Research', 0),
+  ('Campus Founders Circle', 'MVPs, Pitch Decks, Co-Founder Matching', 0),
+  ('Robotics & Hardware Lab', 'ROS2, Drones, IoT, PCB Design', 0),
+  ('Design & Creative Technologists', 'UI/UX, Figma, WebGL, Indie Games', 0)
 on conflict (lower(name)) do nothing;
 
 insert into public.events (title, event_date, mode, tag, description)

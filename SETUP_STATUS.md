@@ -24,14 +24,8 @@
 - Storage buckets: `avatars`, `project-images` (public read, user-scoped writes).
 - Realtime publication: 12 tables.
 - Seed: 4 communities, 3 events.
-- Demo content: 4 projects (`SmarterCampus`, `EcoGo`, `AeroBot`, `MedBrief AI`),
-  11 tasks, 4 messages, 1 resource.
-
-## Demo account
-
-- Email: `demo@collabu.local`
-- Password: shared in the setup chat (change it in Supabase → Authentication → Users)
-- Profile: Aarav Sharma, Chandigarh University
+- Demo content: none. The database starts clean; the first real signup creates
+  the first profile, project, and workspace.
 
 ## Local app
 
@@ -45,7 +39,8 @@
 - All 15 REST tables return the expected rows under RLS.
 - Nested selects work (`applications → projects`).
 - The `handle_new_user` trigger created the profile with correct initials.
-- 4 demo projects load with members, tasks, messages, and resources.
+- Demo projects loaded correctly during verification, then were removed for
+  production. The database now contains zero users and zero projects.
 
 ## Public deployment (Vercel)
 
@@ -61,7 +56,7 @@
 
 ## Next steps
 
-1. Change the demo password or delete the demo user before sharing the app publicly.
-2. Configure Google OAuth in Supabase if you want social login.
+1. Configure Google OAuth in Supabase if you want social login.
+2. Create your real account through the app (the database is clean).
 3. Note: Supabase free projects pause after 7 days of inactivity; open the
    dashboard to restore.
