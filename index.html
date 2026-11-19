@@ -133,7 +133,7 @@
         </button>
 
         <!-- Post an Idea CTA -->
-        <button type="button" onclick="openPostIdeaModal()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-charcoal hover:bg-neutral-800 text-white text-xs sm:text-sm font-semibold transition-all shadow-sm">
+        <button type="button" onclick="openPostIdeaModal()" class="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-charcoal hover:bg-neutral-800 text-white text-xs sm:text-sm font-semibold transition-all shadow-sm">
           <span>Post an Idea</span>
           <span class="text-limeu text-xs">↗</span>
         </button>
@@ -151,8 +151,9 @@
     </div>
 
     <!-- Mobile Nav Drawer -->
-    <div id="mobileMenu" class="hidden lg:hidden border-t border-gray-200 bg-white px-4 py-3 space-y-1">
+    <div id="mobileMenu" class="hidden lg:hidden border-t border-gray-200 bg-white px-4 py-3 space-y-1 max-h-[70vh] overflow-y-auto">
       <button type="button" onclick="navigateTo('home'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Home</button>
+      <button type="button" onclick="openPostIdeaModal(); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Post an Idea</button>
       <button type="button" onclick="navigateTo('explore'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Explore Ideas</button>
       <button type="button" onclick="navigateTo('teammates'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Find Teammates</button>
       <button type="button" onclick="navigateTo('workspaces'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Workspaces</button>

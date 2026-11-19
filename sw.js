@@ -3,7 +3,7 @@
  * App-shell precache + stale-while-revalidate for same-origin static assets.
  * Supabase requests are always network-only so auth/realtime data is never stale.
  */
-const VERSION = "collabu-v2";
+const VERSION = "collabu-v3";
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
