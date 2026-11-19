@@ -3,7 +3,7 @@
  * App-shell precache + stale-while-revalidate for same-origin static assets.
  * Supabase requests are always network-only so auth/realtime data is never stale.
  */
-const VERSION = "collabu-v1";
+const VERSION = "collabu-v2";
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
   "./js/api.js",
   "./js/auth.js",
   "./js/realtime.js",
+  "./js/push.js",
   "./js/app.js"
 ];
 
@@ -35,6 +36,41 @@ self.addEventListener("activate", (event) => {
         Promise.all(keys.filter((k) => !k.startsWith(VERSION)).map((k) => caches.delete(k)))
       )
       .then(() => self.clients.claim())
+  );
+});
+
+/* Web Push: show a notification even when the app is closed. */
+self.addEventListener("push", (event) => {
+  let payload = { title: "CollabU", body: "You have a new notification.", url: "./" };
+  try {
+    if (event.data) payload = Object.assign(payload, event.data.json());
+  } catch (_) {}
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "CollabU", {
+      body: payload.body || "You have a new notification.",
+      icon: "./assets/icon.svg",
+      badge: "./assets/icon.svg",
+      tag: "collabu-notification",
+      data: { url: payload.url || "./" }
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(
+    (event.notification.data && event.notification.data.url) || "./",
+    self.location.origin
+  ).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if (w.url === target && "focus" in w) return w.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
   );
 });
 

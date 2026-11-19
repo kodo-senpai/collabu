@@ -26,7 +26,10 @@ const state = {
   applications: [],
   blockedIds: [],
   notifications: [],
-  _renderedWsId: null
+  connections: [],
+  _renderedWsId: null,
+  _knownMyProjectIds: new Set(),
+  _initialized: false
 };
 
 let _refreshTimer = null;
@@ -126,8 +129,8 @@ async function loadData() {
   const user = Auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const profiles = await API.listProfiles();
-  const [profile, projects, savedIds, apps, notifs, blocked, events, communities] = await Promise.all([
+const profiles = await API.listProfiles();
+  const [profile, projects, savedIds, apps, notifs, blocked, events, communities, conns] = await Promise.all([
     API.ensureProfile(user.id, user.email),
     API.listProjects(profiles),
     API.listSavedIds(user.id),
@@ -135,8 +138,16 @@ async function loadData() {
     API.listNotifications(user.id),
     API.listBlockedIds(user.id),
     API.listEvents(user.id),
-    API.listCommunities(user.id)
+    API.listCommunities(user.id),
+    API.listConnections(user.id)
   ]);
+
+  const myIds = projects
+    .filter((p) => p.creatorId === user.id || p.memberIds.includes(user.id))
+    .map((p) => p.id);
+  const newMine = state._initialized
+    ? myIds.filter((id) => !state._knownMyProjectIds.has(id))
+    : [];
 
   state.user = shapeUser(profile || { id: user.id, name: user.email || "Student" });
   state.projects = projects;
@@ -149,10 +160,21 @@ async function loadData() {
   state.blockedIds = blocked;
   state.events = events;
   state.communities = communities;
+  state.connections = conns;
+
+  state._knownMyProjectIds = new Set(myIds);
+  state._initialized = true;
 
   const mine = myProjects();
   if (!mine.some((p) => p.id === state.activeWorkspaceId)) {
     state.activeWorkspaceId = mine.length ? mine[0].id : (state.projects[0] ? state.projects[0].id : null);
+  }
+
+  if (newMine.length) {
+    newMine.slice(0, 2).forEach((id) => {
+      const p = projects.find((x) => x.id === id);
+      if (p) showToast("You were added to " + p.title);
+    });
   }
 }
 
@@ -254,20 +276,35 @@ function renderNotifications() {
   }
 
   const list = document.getElementById("notifList");
-  if (!list) return;
-  if (!state.notifications.length) {
-    list.innerHTML = '<div class="p-4 text-xs text-muted text-center">No notifications yet.</div>';
-    return;
+  const dash = document.getElementById("dashNotifList");
+
+  if (list) {
+    list.innerHTML = state.notifications.length
+      ? state.notifications
+          .map(
+            (n) => `
+        <div class="px-4 py-3 text-xs ${n.read ? "bg-white" : "bg-limeu-soft/40"}">
+          <div class="font-medium text-charcoal">${escapeHtml(n.text)}</div>
+          <div class="text-[11px] text-muted mt-1">${escapeHtml(n.time)}</div>
+        </div>`
+          )
+          .join("")
+      : '<div class="p-4 text-xs text-muted text-center">No notifications yet.</div>';
   }
-  list.innerHTML = state.notifications
-    .map(
-      (n) => `
-      <div class="px-4 py-3 text-xs ${n.read ? "bg-white" : "bg-limeu-soft/40"}">
-        <div class="font-medium text-charcoal">${escapeHtml(n.text)}</div>
-        <div class="text-[11px] text-muted mt-1">${escapeHtml(n.time)}</div>
-      </div>`
-    )
-    .join("");
+
+  if (dash) {
+    dash.innerHTML = state.notifications.length
+      ? state.notifications
+          .map(
+            (n) => `
+        <div class="p-3 rounded-xl text-xs ${n.read ? "bg-canvas border border-gray-200" : "bg-limeu-soft/50 border border-limeu/30"}">
+          <div class="font-medium text-charcoal">${escapeHtml(n.text)}</div>
+          <div class="text-[11px] text-muted mt-0.5">${escapeHtml(n.time)}</div>
+        </div>`
+          )
+          .join("")
+      : '<div class="text-xs text-muted py-4 text-center">No notifications yet.</div>';
+  }
 }
 
 function toggleNotifications() {
@@ -533,6 +570,92 @@ async function connectStudent(id) {
   try {
     await API.connect(state.user.id, id);
     showToast("Connection request sent to " + (student ? student.name : "student"));
+    scheduleRefresh();
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+function renderConnections() {
+  const list = document.getElementById("connList");
+  const count = document.getElementById("connCount");
+  if (!list) return;
+
+  const conns = state.connections || [];
+  const pending = conns.filter((c) => c.status === "pending" && c.direction === "incoming");
+  const outgoing = conns.filter((c) => c.status === "pending" && c.direction === "outgoing");
+  const accepted = conns.filter((c) => c.status === "accepted");
+
+  if (count) count.textContent = pending.length ? pending.length + " pending" : "";
+
+  if (!conns.length) {
+    list.innerHTML = '<div class="text-xs text-muted py-4 text-center">No connection requests yet.</div>';
+    return;
+  }
+
+  const item = (c) => {
+    let actions;
+    if (c.direction === "incoming" && c.status === "pending") {
+      actions = `<div class="flex gap-1.5 shrink-0">
+        <button type="button" onclick="acceptConnection('${c.id}')" class="px-2.5 py-1 rounded-lg bg-charcoal text-white text-[11px] font-semibold">Accept</button>
+        <button type="button" onclick="declineConnection('${c.id}')" class="px-2.5 py-1 rounded-lg bg-white border border-gray-300 text-[11px] font-semibold">Decline</button>
+      </div>`;
+    } else if (c.status === "pending") {
+      actions = '<span class="text-[11px] font-semibold text-amber-700 shrink-0">Pending</span>';
+    } else if (c.status === "accepted") {
+      actions = '<span class="text-[11px] font-semibold text-emerald-700 shrink-0">Connected</span>';
+    } else {
+      actions = '<span class="text-[11px] font-semibold text-muted shrink-0">Declined</span>';
+    }
+
+    return `<div class="p-3 rounded-xl bg-canvas border border-gray-200 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-8 h-8 rounded-full bg-charcoal text-limeu font-bold text-[11px] flex items-center justify-center shrink-0">${escapeHtml(c.initials)}</div>
+        <div class="min-w-0">
+          <div class="text-xs font-bold text-charcoal truncate">${escapeHtml(c.name)}</div>
+          <div class="text-[11px] text-muted truncate">${escapeHtml(c.college || "")}${c.direction === "incoming" ? " • incoming" : " • outgoing"}</div>
+        </div>
+      </div>
+      ${actions}
+    </div>`;
+  };
+
+  const ordered = pending.concat(outgoing, accepted);
+  list.innerHTML = ordered.map(item).join("");
+}
+
+async function acceptConnection(connId) {
+  try {
+    const conn = state.connections.find((c) => c.id === connId);
+    await API.updateConnection(connId, "accepted");
+    if (conn) await API.notifyUser(conn.userId, "accepted your connection request.");
+    await refreshAll();
+    showToast("Connection accepted");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function declineConnection(connId) {
+  try {
+    const conn = state.connections.find((c) => c.id === connId);
+    await API.updateConnection(connId, "rejected");
+    if (conn) await API.notifyUser(conn.userId, "declined your connection request.");
+    await refreshAll();
+    showToast("Connection declined");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function enablePushNotifications() {
+  if (!window.Push) {
+    showToast("Push notifications are not supported in this browser.");
+    return;
+  }
+  try {
+    const enabled = await window.Push.enable();
+    showToast(enabled ? "Push notifications enabled" : "Push notifications were not enabled");
   } catch (err) {
     toastError(err);
   }
@@ -816,12 +939,35 @@ async function addWorkspaceResource(e, projId) {
 }
 
 async function handleJoinRequest(projId, reqId, approve) {
+  const project = state.projects.find((x) => x.id === projId);
+  const req = project ? (project.pendingRequests || []).find((r) => r.id === reqId) : null;
+
+  if (project) {
+    project.pendingRequests = (project.pendingRequests || []).filter((r) => r.id !== reqId);
+    if (approve && req) {
+      if (!project.memberIds.includes(req.applicantId)) {
+        project.memberIds = project.memberIds.concat(req.applicantId);
+        project.members = project.members.concat(req.name);
+      }
+      project.messages = project.messages || [];
+      project.messages.push({
+        id: "temp-" + Date.now(),
+        sender: state.user.name,
+        senderId: state.user.id,
+        text: req.role + " request accepted — welcome to the team!",
+        time: "Just now"
+      });
+    }
+  }
+  renderWorkspaces();
+
   try {
     await API.reviewApplication(reqId, approve ? "Accepted" : "Rejected", state.user.id);
     showToast(approve ? "Applicant added to the team!" : "Request declined");
     await refreshAll();
   } catch (err) {
     toastError(err);
+    await refreshAll();
   }
 }
 
@@ -1032,6 +1178,8 @@ function renderDashboard() {
           .join("")
       : '<div class="text-xs text-muted">No saved opportunities yet.</div>';
   }
+
+  renderConnections();
 }
 
 async function saveUserProfile(e) {
@@ -1397,6 +1545,7 @@ async function start() {
   }
 
   window.Realtime.subscribe({ onChange: scheduleRefresh });
+  if (window.Push) window.Push.init().catch(() => {});
 }
 
 function stop() {
@@ -1407,7 +1556,10 @@ function stop() {
   state.savedIds = [];
   state.applications = [];
   state.notifications = [];
+  state.connections = [];
   state.activeWorkspaceId = null;
+  state._knownMyProjectIds = new Set();
+  state._initialized = false;
   showLoader(false);
 }
 
@@ -1483,6 +1635,9 @@ window.switchHackathonTab = switchHackathonTab;
 window.toggleEventRSVP = toggleEventRSVP;
 window.toggleCommunity = toggleCommunity;
 window.connectStudent = connectStudent;
+window.acceptConnection = acceptConnection;
+window.declineConnection = declineConnection;
+window.enablePushNotifications = enablePushNotifications;
 window.inviteStudentToProj = inviteStudentToProj;
 window.blockStudent = blockStudent;
 window.submitApplication = submitApplication;

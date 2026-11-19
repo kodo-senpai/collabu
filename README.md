@@ -389,6 +389,20 @@ structure the original UI expects (`members` as names, `tasks[].assignee` as a n
 
 ---
 
+### 7.8 Connections & Web Push
+
+- `connections` powers incoming/outgoing teammate requests. The dashboard shows
+  pending requests with **Accept/Decline**, and the list syncs through Realtime.
+- `push_subscriptions` + `push_config` + the `send-push` Edge Function deliver
+  **Web Push** notifications even when the app is closed. `notify_user()` returns
+  the notification ID and `js/push.js` invokes the function after creating one.
+- The notification dropdown is responsive (`fixed` full-width on mobile, anchored
+  on desktop), and the dashboard has a full notifications + connections view.
+- Join requests update optimistically in the creator's workspace, and a newly
+  accepted member sees a "You were added to …" toast after the realtime refresh.
+
+---
+
 ## 8. Deployment Strategy (Zero Cost)
 
 ### 8.1 Push to GitHub

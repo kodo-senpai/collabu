@@ -14,5 +14,6 @@ window.COLLABU_CONFIG = {
   GOOGLE_REDIRECT: window.location.origin,
 
   // Friendly display name for the app shell.
-  APP_NAME: "CollabU"
+  APP_NAME: "CollabU",
+  VAPID_PUBLIC_KEY: "BDAhQZ6WY02E37GWONkMCOrYMA9h0JX9zl8evvz5g5jyhHTwi5V3kpQoSPTelTrdO67pJ3E_eBVRqqyuyYM1qDg"
 };

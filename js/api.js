@@ -198,6 +198,7 @@
           .filter((a) => a.status === "Pending")
           .map((a) => ({
             id: a.id,
+            applicantId: a.applicant_id,
             name: (byId[a.applicant_id] || {}).name || "Applicant",
             college: (byId[a.applicant_id] || {}).college || "",
             role: a.role,
@@ -319,10 +320,7 @@
       .maybeSingle();
 
     if (project && project.creator_id) {
-      await sb().rpc("notify_user", {
-        target_user: project.creator_id,
-        body: "New collaboration request for " + project.title + "."
-      });
+      await notifyUser(project.creator_id, "New collaboration request for " + project.title + ".");
     }
   }
 
@@ -376,13 +374,12 @@
       });
     }
 
-    await sb().rpc("notify_user", {
-      target_user: app.applicant_id,
-      body:
-        status === "Accepted"
-          ? "Your collaboration request was accepted!"
-          : "Your collaboration request was not selected this time."
-    });
+    await notifyUser(
+      app.applicant_id,
+      status === "Accepted"
+        ? "Your collaboration request was accepted!"
+        : "Your collaboration request was not selected this time."
+    );
   }
 
   /* ---------------------------------------------------------- saved / blocks */
@@ -440,10 +437,58 @@
       status: "pending"
     });
     if (error && error.code !== "23505") throw error;
-    await sb().rpc("notify_user", {
-      target_user: toId,
-      body: "You received a collaboration connection request."
+    await notifyUser(toId, "You received a collaboration connection request.");
+  }
+
+  async function notifyUser(targetUser, body) {
+    const { data, error } = await sb().rpc("notify_user", {
+      target_user: targetUser,
+      body
     });
+    if (error) throw error;
+
+    if (data && window.Push && typeof window.Push.send === "function") {
+      window.Push.send(data).catch(() => {});
+    }
+    return data;
+  }
+
+  async function listConnections(userId) {
+    const { data, error } = await sb()
+      .from("connections")
+      .select("*")
+      .or(`from_user.eq.${userId},to_user.eq.${userId}`)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+
+    const profiles = await listProfiles();
+    const byId = {};
+    profiles.forEach((p) => (byId[p.id] = p));
+
+    return (data || []).map((c) => {
+      const incoming = c.to_user === userId;
+      const other = byId[incoming ? c.from_user : c.to_user] || {};
+      return {
+        id: c.id,
+        direction: incoming ? "incoming" : "outgoing",
+        userId: incoming ? c.from_user : c.to_user,
+        name: other.name || "Student",
+        initials: other.initials || initialsOf(other.name),
+        college: other.college || "",
+        status: c.status,
+        createdAt: c.created_at
+      };
+    });
+  }
+
+  async function updateConnection(connId, status) {
+    const { error } = await sb().from("connections").update({ status }).eq("id", connId);
+    if (error) throw error;
+  }
+
+  async function deleteConnection(connId) {
+    const { error } = await sb().from("connections").delete().eq("id", connId);
+    if (error) throw error;
   }
 
   async function listNotifications(userId) {
@@ -608,6 +653,10 @@
     blockUser,
     unblockUser,
     connect,
+    notifyUser,
+    listConnections,
+    updateConnection,
+    deleteConnection,
     // notifications
     listNotifications,
     markAllNotificationsRead,

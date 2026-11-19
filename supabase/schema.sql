@@ -151,12 +151,38 @@ create index if not exists saved_items_project_idx on public.saved_items (projec
 create table if not exists public.notifications (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.profiles (id) on delete cascade,
+  actor_id   uuid references public.profiles (id) on delete set null,
   text       text not null,
   read       boolean not null default false,
   created_at timestamptz not null default now()
 );
 
+alter table public.notifications
+  add column if not exists actor_id uuid references public.profiles (id) on delete set null;
+
 create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
+create index if not exists notifications_actor_idx on public.notifications (actor_id);
+
+-- Web Push subscriptions (one row per browser/device endpoint)
+create table if not exists public.push_subscriptions (
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  endpoint   text not null,
+  p256dh     text not null,
+  auth       text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, endpoint)
+);
+
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions (user_id);
+
+-- Private push configuration (VAPID keys). No client access.
+create table if not exists public.push_config (
+  id                boolean primary key default true check (id),
+  vapid_public_key  text not null,
+  vapid_private_key text not null,
+  vapid_subject     text not null default 'mailto:admin@collabu.app',
+  updated_at        timestamptz not null default now()
+);
 
 -- ----------------------------------------------------------------------------
 -- events / hackathons
@@ -264,17 +290,23 @@ $$;
 
 -- Send a notification to ANY user (bypasses the "own rows only" policy).
 -- Grant execute to authenticated so clients can notify creators/applicants.
+drop function if exists public.notify_user(uuid, text);
 create or replace function public.notify_user(target_user uuid, body text)
-returns void
+returns uuid
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  new_id uuid;
 begin
   if target_user is null or coalesce(trim(body), '') = '' then
-    return;
+    return null;
   end if;
-  insert into public.notifications (user_id, text) values (target_user, body);
+  insert into public.notifications (user_id, actor_id, text)
+  values (target_user, auth.uid(), body)
+  returning id into new_id;
+  return new_id;
 end;
 $$;
 
@@ -414,6 +446,8 @@ alter table public.project_resources   enable row level security;
 alter table public.applications        enable row level security;
 alter table public.saved_items         enable row level security;
 alter table public.notifications       enable row level security;
+alter table public.push_subscriptions  enable row level security;
+alter table public.push_config         enable row level security;
 alter table public.events              enable row level security;
 alter table public.event_rsvps         enable row level security;
 alter table public.communities         enable row level security;
@@ -568,7 +602,7 @@ create policy saved_delete_own on public.saved_items
 -- -------------------------- notifications ----------------------------------
 drop policy if exists notif_select_own on public.notifications;
 create policy notif_select_own on public.notifications
-  for select to authenticated using (user_id = auth.uid());
+  for select to authenticated using (user_id = auth.uid() or actor_id = auth.uid());
 
 drop policy if exists notif_insert_own on public.notifications;
 create policy notif_insert_own on public.notifications
@@ -581,6 +615,21 @@ create policy notif_update_own on public.notifications
 drop policy if exists notif_delete_own on public.notifications;
 create policy notif_delete_own on public.notifications
   for delete to authenticated using (user_id = auth.uid());
+
+-- ------------------------- push_subscriptions ------------------------------
+drop policy if exists push_subs_select_own on public.push_subscriptions;
+create policy push_subs_select_own on public.push_subscriptions
+  for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists push_subs_insert_own on public.push_subscriptions;
+create policy push_subs_insert_own on public.push_subscriptions
+  for insert to authenticated with check (user_id = auth.uid());
+
+drop policy if exists push_subs_delete_own on public.push_subscriptions;
+create policy push_subs_delete_own on public.push_subscriptions
+  for delete to authenticated using (user_id = auth.uid());
+
+-- push_config intentionally has no policies: service role only.
 
 -- ----------------------------- events --------------------------------------
 drop policy if exists events_select_auth on public.events;
