@@ -13,6 +13,7 @@ node_modules/
 supabase/.temp/
 supabase/.branches/
 supabase/logs/
+supabase/.env
 
 # OS / editor
 .DS_Store

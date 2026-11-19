@@ -23,7 +23,7 @@
 - RPC: `notify_user()` for cross-user notifications.
 - Storage buckets: `avatars`, `project-images` (public read, user-scoped writes).
 - Realtime publication: 12 tables.
-- Seed: 4 communities, 3 events.
+- Seed: intentionally empty (no demo events or communities).
 - Demo content: none. The database starts clean; the first real signup creates
   the first profile, project, and workspace.
 
@@ -59,14 +59,28 @@
 - Verified: `GET /auth/v1/authorize?provider=google` returns 302 to
   `accounts.google.com` with the correct client ID and callback.
 
+## GitHub Streak Challenge
+
+- Tables: `github_connections`, `challenge_teams`, `challenge_members`,
+  `challenge_member_days`, `challenge_days`, `challenge_events`, `app_secrets`.
+- Edge Functions: `streak-evaluate` and `streak-remind` (ACTIVE), protected by a
+  cron secret; `send-push` handles Web Push.
+- Cron: evaluation at 00:10 UTC, reminder at 20:00 UTC.
+- Rules: 60% quorum (no all-or-nothing), 3 Streak Saves, 24h new-member grace,
+  commits/PRs in the shared repo count as valid activity.
+
 ## Not configured yet
 
-- Nothing required. Google login is ready to test in the browser.
+- GitHub OAuth (create an OAuth app and paste Client ID/Secret into Supabase →
+  Authentication → Providers → GitHub).
 
 ## Next steps
 
 1. Test "Continue with Google" in the browser. If Google shows an error, publish
    the OAuth consent screen or add your Google account as a test user.
-2. Create your real account through the app (the database is clean).
-3. Note: Supabase free projects pause after 7 days of inactivity; open the
+2. Create a GitHub OAuth app (callback
+   `https://ffxgsnwbraangtxxukgt.supabase.co/auth/v1/callback`) and enable the
+   GitHub provider in Supabase.
+3. Create your real account through the app (the database is clean).
+4. Note: Supabase free projects pause after 7 days of inactivity; open the
    dashboard to restore.

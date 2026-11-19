@@ -100,6 +100,7 @@
         <button type="button" data-nav="teammates" onclick="navigateTo('teammates')" class="nav-btn hover:text-charcoal transition-colors">Find Teammates</button>
         <button type="button" data-nav="workspaces" onclick="navigateTo('workspaces')" class="nav-btn hover:text-charcoal transition-colors">Workspaces</button>
         <button type="button" data-nav="hackathons" onclick="navigateTo('hackathons')" class="nav-btn hover:text-charcoal transition-colors">Hackathons</button>
+        <button type="button" data-nav="challenges" onclick="navigateTo('challenges')" class="nav-btn hover:text-charcoal transition-colors">Streak Challenge</button>
         <button type="button" data-nav="dashboard" onclick="navigateTo('dashboard')" class="nav-btn hover:text-charcoal transition-colors">Dashboard</button>
       </nav>
 
@@ -156,6 +157,7 @@
       <button type="button" onclick="navigateTo('teammates'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Find Teammates</button>
       <button type="button" onclick="navigateTo('workspaces'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Workspaces</button>
       <button type="button" onclick="navigateTo('hackathons'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Hackathons & Communities</button>
+      <button type="button" onclick="navigateTo('challenges'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Streak Challenge</button>
       <button type="button" onclick="navigateTo('dashboard'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">My Dashboard & Profile</button>
     </div>
   </header>
@@ -718,6 +720,13 @@
             <div id="connList" class="space-y-3 max-h-72 overflow-y-auto"></div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 7: STREAK CHALLENGE ==================== -->
+    <section id="view-challenges" class="view-section hidden">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div id="challengeContent"></div>
       </div>
     </section>
 

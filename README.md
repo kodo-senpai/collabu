@@ -104,7 +104,7 @@ project/
 │   └── app.js                  # State, renderers, async mutations, routing
 ├── supabase/
 │   ├── schema.sql              # Tables, indexes, RLS, triggers, storage, realtime
-│   ├── seed.sql                # Communities + events
+│   ├── seed.sql                # Intentionally empty
 └── collabu_where_student_ideas_meet_real_teams.html  # Original prototype (untouched)
 ```
 
@@ -217,7 +217,7 @@ who is not a member cannot read chat, tasks, or resources even with a crafted qu
 
 1. Open **SQL Editor → New query**.
 2. Paste the entire contents of `supabase/schema.sql` and run it.
-3. Run `supabase/seed.sql` to add communities and events.
+3. Seed data is intentionally empty — the database starts clean.
 4. Create your account through the app. The database starts clean — no demo users
    or sample projects are inserted.
 
@@ -244,6 +244,12 @@ who is not a member cannot read chat, tasks, or resources even with a crafted qu
    - For public signups, publish the OAuth consent screen (Testing mode allows 100
      test users). The `email`/`profile`/`openid` scopes do not require Google
      verification.
+4. **GitHub OAuth** (for the Streak Challenge):
+   - https://github.com/settings/developers → **New OAuth app**.
+   - **Authorization callback URL**:
+     `https://ffxgsnwbraangtxxukgt.supabase.co/auth/v1/callback`.
+   - Copy Client ID + Secret into Supabase **Authentication → Providers → GitHub**.
+   - Enable the provider.
 
 ### 6.4 Configure the frontend
 
@@ -401,6 +407,27 @@ structure the original UI expects (`members` as names, `tasks[].assignee` as a n
 - Join requests update optimistically in the creator's workspace, and a newly
   accepted member sees a "You were added to …" toast after the realtime refresh.
 
+### 7.9 GitHub Team Streak Challenge
+
+- Users connect GitHub through Supabase's GitHub OAuth provider. The access token is
+  stored server-side in `github_connections`; clients can read only non-secret columns.
+- Teams form around a shared `owner/repo`; teammates join with an 8-character code.
+- **Quorum rule (no all-or-nothing):** the streak grows when at least **60%** of
+  eligible members push or open a PR that UTC day.
+- **Streak Saves:** 3 per team. A missed quorum consumes one save; at zero saves the
+  challenge ends and the final streak is preserved.
+- **Valid activity:** a commit to the shared repo's default branch or a PR created in
+  that repo, via GitHub GraphQL `contributionsCollection`.
+- **New members:** eligible the day after joining (24h+ grace).
+- **Schedule:** evaluation at **00:10 UTC**, reminder at **20:00 UTC** via `pg_cron`
+  → Edge Functions (`streak-evaluate`, `streak-remind`).
+- **Delivery:** results and reminders go through the existing notifications + Web Push.
+- **GitHub OAuth setup:**
+  - https://github.com/settings/developers → **New OAuth app**.
+  - Authorization callback URL:
+    `https://ffxgsnwbraangtxxukgt.supabase.co/auth/v1/callback`
+  - Supabase → **Authentication → Providers → GitHub** → paste Client ID + Secret.
+
 ---
 
 ## 8. Deployment Strategy (Zero Cost)
@@ -505,7 +532,7 @@ git push -u origin main
 | `js/realtime.js` | Single Supabase channel fanning out table changes. |
 | `js/app.js` | State cache, renderers, async mutations, hash routing, PWA registration. |
 | `supabase/schema.sql` | Tables, indexes, RLS, triggers, RPC, storage, realtime publication. |
-| `supabase/seed.sql` | Communities + events. |
+| `supabase/seed.sql` | Intentionally empty; the database starts clean. |
 | `sw.js` | Offline app shell; never caches Supabase. |
 | `manifest.webmanifest` | Installable PWA metadata. |
 | `vercel.json` | Static hosting + headers. |

@@ -18,7 +18,12 @@
     "events",
     "connections",
     "communities",
-    "community_members"
+    "community_members",
+    "challenge_teams",
+    "challenge_members",
+    "challenge_member_days",
+    "challenge_days",
+    "challenge_events"
   ];
 
   function subscribe(handlers) {

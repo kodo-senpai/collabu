@@ -618,6 +618,7 @@
       }
 
       if (session && session.user) {
+        window.__COLLABU_SESSION__ = session;
         if (recoveryMode) return;
         enterApp(session.user);
       } else if (event === "SIGNED_OUT") {
@@ -628,6 +629,7 @@
 
     const { data } = await window.sb.auth.getSession();
     if (data && data.session && data.session.user) {
+      window.__COLLABU_SESSION__ = data.session;
       if (!recoveryMode) await enterApp(data.session.user);
     } else {
       showGate();

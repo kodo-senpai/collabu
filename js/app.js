@@ -10,7 +10,7 @@
 
 /* ------------------------------------------------------------------ state */
 
-const VALID_VIEWS = ["home", "explore", "teammates", "workspaces", "hackathons", "dashboard"];
+const VALID_VIEWS = ["home", "explore", "teammates", "workspaces", "hackathons", "challenges", "dashboard"];
 
 const state = {
   currentView: "home",
@@ -27,6 +27,7 @@ const state = {
   blockedIds: [],
   notifications: [],
   connections: [],
+  challenge: { loading: false, loaded: false, connection: null, team: null, members: [], days: [], events: [] },
   _renderedWsId: null,
   _knownMyProjectIds: new Set(),
   _initialized: false
@@ -1001,7 +1002,7 @@ function renderHackathons() {
   if (!container) return;
 
   if (state.activeHackathonTab === "events") {
-    container.innerHTML = `<div class="grid md:grid-cols-3 gap-6">${state.events.map((ev) => `
+    container.innerHTML = `<div class="grid md:grid-cols-3 gap-6">${state.events.length ? state.events.map((ev) => `
       <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col justify-between gap-4">
         <div class="space-y-2.5">
           <div class="flex items-center justify-between text-xs">
@@ -1018,9 +1019,9 @@ function renderHackathons() {
           </button>
           <button type="button" onclick="navigateTo('teammates')" class="px-3 py-2 rounded-xl bg-canvas border border-gray-200 text-xs font-semibold hover:bg-gray-200">Find Team</button>
         </div>
-      </div>`).join("")}</div>`;
+      </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No events yet. Organize the first hackathon or workshop.</div>'}</div>`;
   } else if (state.activeHackathonTab === "communities") {
-    container.innerHTML = `<div class="grid sm:grid-cols-2 gap-5">${state.communities.map((c) => `
+    container.innerHTML = `<div class="grid sm:grid-cols-2 gap-5">${state.communities.length ? state.communities.map((c) => `
       <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex items-center justify-between gap-4">
         <div>
           <h3 class="font-extrabold text-base text-charcoal">${escapeHtml(c.name)}</h3>
@@ -1030,7 +1031,7 @@ function renderHackathons() {
         <button type="button" onclick="toggleCommunity('${c.id}', ${c.joined ? "false" : "true"})" class="px-4 py-2 rounded-full text-xs font-semibold shrink-0 ${c.joined ? "bg-emerald-100 text-emerald-800" : "bg-charcoal text-white hover:bg-neutral-800"}">
           ${c.joined ? "✓ Joined" : "Join Space"}
         </button>
-      </div>`).join("")}</div>`;
+      </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No communities yet.</div>'}</div>`;
   } else {
     const completed = state.projects.filter((p) => p.completed);
     container.innerHTML = `<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">${completed.length ? completed.map((p) => `
@@ -1069,6 +1070,258 @@ async function toggleCommunity(id, joined) {
     showToast(joined ? "Joined the community!" : "Left the community");
   } catch (err) {
     toastError(err);
+  }
+}
+
+/* ------------------------------------------------------- streak challenge */
+
+async function loadChallenge() {
+  if (state.challenge.loading) return;
+  state.challenge.loading = true;
+  state.challenge.loaded = false;
+  renderChallenges();
+
+  try {
+    const userId = state.user.id;
+    const connection = await API.getGithubConnection(userId);
+    let data = { team: null, members: [], days: [], events: [] };
+    if (connection) {
+      data = await API.getChallengeData(userId);
+    }
+    state.challenge = {
+      loading: false,
+      loaded: true,
+      connection,
+      team: data.team,
+      members: data.members || [],
+      days: data.days || [],
+      events: data.events || []
+    };
+  } catch (err) {
+    console.error("[CollabU] challenge load failed", err);
+    state.challenge = {
+      loading: false,
+      loaded: true,
+      connection: null,
+      team: null,
+      members: [],
+      days: [],
+      events: [],
+      error: err
+    };
+  }
+
+  renderChallenges();
+}
+
+function renderChallenges() {
+  const container = document.getElementById("challengeContent");
+  if (!container) return;
+
+  const c = state.challenge;
+
+  if (!c.loaded && !c.loading) {
+    loadChallenge();
+    return;
+  }
+  if (c.loading && !c.loaded) {
+    container.innerHTML =
+      '<div class="text-center text-sm text-muted py-12">Loading streak challenge…</div>';
+    return;
+  }
+
+  if (!c.connection) {
+    container.innerHTML = `
+      <div class="max-w-2xl mx-auto bg-white rounded-2xl border border-gray-200 p-8 text-center shadow-sm">
+        <div class="text-4xl mb-3">🔥</div>
+        <h1 class="text-2xl font-black text-charcoal">Team Streak Challenge</h1>
+        <p class="text-sm text-muted mt-2 leading-relaxed">
+          Connect your GitHub account to create or join a team. Keep at least 60% of the team pushing every UTC day to grow your streak. You get 3 Streak Saves to survive missed days.
+        </p>
+        <button type="button" onclick="connectGitHub()" class="mt-5 px-6 py-3 rounded-full bg-charcoal hover:bg-neutral-800 text-white text-sm font-bold">Connect GitHub →</button>
+        <p class="text-[11px] text-muted mt-3">We request read access to your contributions and repo metadata. Tokens stay server-side.</p>
+      </div>`;
+    return;
+  }
+
+  if (!c.team) {
+    container.innerHTML = `
+      <div class="max-w-4xl mx-auto space-y-5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-charcoal text-limeu font-black text-xs flex items-center justify-center">${escapeHtml(API.initialsOf(c.connection.github_login))}</div>
+          <div>
+            <div class="text-sm font-bold text-charcoal">Connected as @${escapeHtml(c.connection.github_login)}</div>
+            <div class="text-[11px] text-muted">GitHub streak challenge</div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h2 class="font-bold text-lg text-charcoal">Create a Team</h2>
+            <p class="text-xs text-muted mt-1 mb-4">Pick a shared repo and invite teammates with the code.</p>
+            <form onsubmit="createChallengeTeam(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-muted uppercase mb-1">Team name</label>
+                <input id="challengeName" type="text" required placeholder="e.g. Midnight Builders" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-muted uppercase mb-1">Shared GitHub repo</label>
+                <input id="challengeRepo" type="text" required placeholder="owner/repo" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200 text-sm" />
+              </div>
+              <button type="submit" class="w-full py-2.5 rounded-xl bg-charcoal text-white text-xs font-bold">Create Team →</button>
+            </form>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h2 class="font-bold text-lg text-charcoal">Join with Code</h2>
+            <p class="text-xs text-muted mt-1 mb-4">Ask a teammate for their 8-character invite code.</p>
+            <form onsubmit="joinChallengeTeam(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-muted uppercase mb-1">Invite code</label>
+                <input id="challengeCode" type="text" required placeholder="ABCD1234" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200 text-sm font-mono uppercase tracking-widest" />
+              </div>
+              <button type="submit" class="w-full py-2.5 rounded-xl border border-charcoal text-charcoal text-xs font-bold">Join Challenge →</button>
+            </form>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const team = c.team;
+  const members = c.members || [];
+  const pushedToday = members.filter((m) => m.pushed).length;
+  const quorum = Math.max(1, Math.ceil(members.length * 0.6));
+
+  container.innerHTML = `
+    <div class="space-y-5">
+      <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-2xl font-black text-charcoal">${escapeHtml(team.name)}</h1>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${team.status === "active" ? "bg-limeu-soft text-limeu-dark" : "bg-red-100 text-red-700"}">${team.status === "active" ? "Active" : "Ended"}</span>
+            </div>
+            <p class="text-xs text-muted mt-1">GitHub: ${escapeHtml(team.repo_full_name)}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="px-3 py-2 rounded-xl bg-canvas border border-gray-200">
+              <div class="text-[10px] uppercase font-bold text-muted">Invite code</div>
+              <div class="font-mono font-black text-charcoal tracking-widest">${escapeHtml(team.invite_code)}</div>
+            </div>
+            <button type="button" onclick="copyInviteCode('${team.invite_code}')" class="px-3 py-2 rounded-xl bg-charcoal text-white text-xs font-semibold">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-charcoal">${team.streak_days}</div><div class="text-xs text-muted">Current Streak</div></div>
+        <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-limeu-dark">${team.best_streak}</div><div class="text-xs text-muted">Best Streak</div></div>
+        <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-charcoal">${team.streak_saves}</div><div class="text-xs text-muted">Streak Saves Left</div></div>
+        <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-charcoal">${pushedToday}/${members.length}</div><div class="text-xs text-muted">Pushed Today (quorum ${quorum})</div></div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-sm text-charcoal">Today's Team</h2>
+          <button type="button" onclick="refreshChallenge()" class="text-xs font-semibold text-limeu-dark">Refresh</button>
+        </div>
+        <div class="space-y-2">
+          ${members.length ? members.map((m) => `
+            <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-canvas border border-gray-200">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-charcoal text-limeu font-bold text-[11px] flex items-center justify-center shrink-0">${escapeHtml(API.initialsOf(m.name))}</div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-charcoal truncate">${escapeHtml(m.name)}</div>
+                  <div class="text-[11px] text-muted truncate">@${escapeHtml(m.githubLogin || "github")}</div>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${m.pushed ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}">${m.pushed ? "Pushed ✓" : "Not yet"}</span>
+            </div>`).join("") : '<div class="text-xs text-muted">No members yet.</div>'}
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-gray-200 p-5">
+        <h2 class="font-bold text-sm text-charcoal mb-3">Recent Activity</h2>
+        <div class="space-y-2">
+          ${c.events.length ? c.events.map((ev) => `
+            <div class="text-xs p-2.5 rounded-xl bg-canvas border border-gray-200">
+              <span class="font-bold text-charcoal">${escapeHtml(String(ev.type || "").replace(/_/g, " "))}</span> — ${escapeHtml(ev.message)} <span class="text-muted">${escapeHtml(API.formatTime(ev.created_at))}</span>
+            </div>`).join("") : '<div class="text-xs text-muted">No activity yet.</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function connectGitHub() {
+  try {
+    const { error } = await window.sb.auth.signInWithOAuth({
+      provider: "github",
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) throw error;
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function createChallengeTeam(e) {
+  e.preventDefault();
+  const name = (document.getElementById("challengeName") || {}).value.trim();
+  const repo = (document.getElementById("challengeRepo") || {}).value.trim();
+  if (!name || !repo) return;
+  try {
+    await API.createChallengeTeam(name, repo);
+    await loadChallenge();
+    showToast("Team created! Share the invite code.");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function joinChallengeTeam(e) {
+  e.preventDefault();
+  const code = (document.getElementById("challengeCode") || {}).value.trim();
+  if (!code) return;
+  try {
+    await API.joinChallengeTeam(code);
+    await loadChallenge();
+    showToast("Joined the challenge!");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function leaveChallengeTeam() {
+  if (!state.challenge.team) return;
+  try {
+    await API.leaveChallengeTeam(state.challenge.team.id);
+    state.challenge = {
+      loading: false,
+      loaded: true,
+      connection: state.challenge.connection,
+      team: null,
+      members: [],
+      days: [],
+      events: []
+    };
+    renderChallenges();
+    showToast("Left the challenge");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function refreshChallenge() {
+  await loadChallenge();
+}
+
+async function copyInviteCode(code) {
+  try {
+    await navigator.clipboard.writeText(code);
+    showToast("Invite code copied");
+  } catch (_) {
+    showToast("Invite code: " + code);
   }
 }
 
@@ -1511,6 +1764,9 @@ function renderCurrentView() {
     case "hackathons":
       renderHackathons();
       break;
+    case "challenges":
+      renderChallenges();
+      break;
     case "dashboard":
       renderDashboard();
       break;
@@ -1520,6 +1776,30 @@ function renderCurrentView() {
 }
 
 /* --------------------------------------------------------------- lifecycle */
+
+async function storeGithubSessionIfAny() {
+  const session = window.__COLLABU_SESSION__;
+  if (!session || !session.provider_token) return;
+  if ((session.user.app_metadata || {}).provider !== "github") return;
+
+  const meta = session.user.user_metadata || {};
+  const login = meta.user_name || meta.preferred_username || meta.name;
+  if (!login) return;
+
+  try {
+    await API.storeGithubConnection(session.user.id, {
+      githubId: meta.user_id || meta.sub,
+      githubLogin: login,
+      avatarUrl: meta.avatar_url,
+      accessToken: session.provider_token,
+      tokenScope: session.provider_scope || ""
+    });
+    state.challenge.loaded = false;
+    if (state.currentView === "challenges") loadChallenge();
+  } catch (err) {
+    console.warn("[CollabU] GitHub connection save failed", err);
+  }
+}
 
 function ensureProfile() {
   const u = state.user;
@@ -1535,6 +1815,7 @@ async function start() {
   showLoader(true);
   try {
     await loadData();
+    await storeGithubSessionIfAny();
     navigateTo(parseHash(), true);
     ensureProfile();
   } catch (err) {
@@ -1544,7 +1825,14 @@ async function start() {
     showLoader(false);
   }
 
-  window.Realtime.subscribe({ onChange: scheduleRefresh });
+  window.Realtime.subscribe({
+    onChange: (table) => {
+      if (table && table.indexOf("challenge_") === 0) {
+        state.challenge.loaded = false;
+      }
+      scheduleRefresh();
+    }
+  });
   if (window.Push) window.Push.init().catch(() => {});
 }
 
@@ -1557,6 +1845,7 @@ function stop() {
   state.applications = [];
   state.notifications = [];
   state.connections = [];
+  state.challenge = { loading: false, loaded: false, connection: null, team: null, members: [], days: [], events: [] };
   state.activeWorkspaceId = null;
   state._knownMyProjectIds = new Set();
   state._initialized = false;
@@ -1633,6 +1922,12 @@ window.handleJoinRequest = handleJoinRequest;
 window.toggleShowcase = toggleShowcase;
 window.switchHackathonTab = switchHackathonTab;
 window.toggleEventRSVP = toggleEventRSVP;
+window.connectGitHub = connectGitHub;
+window.createChallengeTeam = createChallengeTeam;
+window.joinChallengeTeam = joinChallengeTeam;
+window.leaveChallengeTeam = leaveChallengeTeam;
+window.refreshChallenge = refreshChallenge;
+window.copyInviteCode = copyInviteCode;
 window.toggleCommunity = toggleCommunity;
 window.connectStudent = connectStudent;
 window.acceptConnection = acceptConnection;

@@ -621,6 +621,117 @@
     }
   }
 
+  // GitHub / streak challenge
+  async function storeGithubConnection(userId, data) {
+    const { error } = await sb()
+      .from("github_connections")
+      .upsert(
+        {
+          user_id: userId,
+          github_id: data.githubId ? Number(data.githubId) : null,
+          github_login: data.githubLogin,
+          avatar_url: data.avatarUrl || null,
+          access_token: data.accessToken,
+          token_scope: data.tokenScope || ""
+        },
+        { onConflict: "user_id" }
+      );
+    if (error) throw error;
+  }
+
+  async function getGithubConnection(userId) {
+    const { data, error } = await sb()
+      .from("github_connections")
+      .select("user_id, github_login, avatar_url, token_scope, created_at, updated_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async function getChallengeData(userId) {
+    const { data: membership, error: mErr } = await sb()
+      .from("challenge_members")
+      .select("team_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (mErr) throw mErr;
+    if (!membership) return { team: null, members: [], days: [], events: [] };
+
+    const teamId = membership.team_id;
+    const [teamRes, membersRes, daysRes, eventsRes] = await Promise.all([
+      sb().from("challenge_teams").select("*").eq("id", teamId).single(),
+      sb().from("challenge_members").select("user_id, github_login, joined_at").eq("team_id", teamId),
+      sb().from("challenge_days").select("*").eq("team_id", teamId).order("day", { ascending: false }).limit(14),
+      sb().from("challenge_events").select("*").eq("team_id", teamId).order("created_at", { ascending: false }).limit(20)
+    ]);
+    if (teamRes.error) throw teamRes.error;
+    if (membersRes.error) throw membersRes.error;
+    if (daysRes.error) throw daysRes.error;
+    if (eventsRes.error) throw eventsRes.error;
+
+    const members = membersRes.data || [];
+    const memberIds = members.map((m) => m.user_id);
+    let profiles = [];
+    if (memberIds.length) {
+      const { data: p } = await sb()
+        .from("profiles")
+        .select("id, name, avatar_url")
+        .in("id", memberIds);
+      profiles = p || [];
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: md } = await sb()
+      .from("challenge_member_days")
+      .select("*")
+      .eq("team_id", teamId)
+      .eq("day", today);
+    const memberDays = md || [];
+
+    const shapedMembers = members.map((m) => {
+      const p = profiles.find((x) => x.id === m.user_id) || {};
+      const mdRow = memberDays.find((x) => x.user_id === m.user_id) || {};
+      return {
+        userId: m.user_id,
+        name: p.name || m.github_login || "Member",
+        githubLogin: m.github_login || "",
+        avatarUrl: p.avatar_url || "",
+        joinedAt: m.joined_at,
+        pushed: !!mdRow.pushed,
+        commits: mdRow.commits || 0,
+        prs: mdRow.prs || 0
+      };
+    });
+
+    return {
+      team: teamRes.data,
+      members: shapedMembers,
+      days: daysRes.data || [],
+      events: eventsRes.data || []
+    };
+  }
+
+  async function createChallengeTeam(name, repo) {
+    const { data, error } = await sb().rpc("create_challenge_team", {
+      p_name: name,
+      p_repo: repo
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function joinChallengeTeam(code) {
+    const { data, error } = await sb().rpc("join_challenge_team", { p_code: code });
+    if (error) throw error;
+    return data;
+  }
+
+  async function leaveChallengeTeam(teamId) {
+    const { error } = await sb().rpc("leave_challenge_team", { p_team: teamId });
+    if (error) throw error;
+  }
+
   /* ---------------------------------------------------------------- exports */
 
   window.API = {
@@ -667,6 +778,12 @@
     setRsvp,
     listCommunities,
     setCommunityMembership,
+    storeGithubConnection,
+    getGithubConnection,
+    getChallengeData,
+    createChallengeTeam,
+    joinChallengeTeam,
+    leaveChallengeTeam,
     // helpers
     formatTime,
     formatDate,
