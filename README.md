@@ -411,6 +411,8 @@ structure the original UI expects (`members` as names, `tasks[].assignee` as a n
 
 - Users connect GitHub through Supabase's GitHub OAuth provider. The access token is
   stored server-side in `github_connections`; clients can read only non-secret columns.
+  A **Personal Access Token** fallback is available in the UI for users who prefer
+  not to create a GitHub OAuth app.
 - Teams form around a shared `owner/repo`; teammates join with an 8-character code.
 - **Quorum rule (no all-or-nothing):** the streak grows when at least **60%** of
   eligible members push or open a PR that UTC day.

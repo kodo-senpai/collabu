@@ -1140,6 +1140,14 @@ function renderChallenges() {
         </p>
         <button type="button" onclick="connectGitHub()" class="mt-5 px-6 py-3 rounded-full bg-charcoal hover:bg-neutral-800 text-white text-sm font-bold">Connect GitHub →</button>
         <p class="text-[11px] text-muted mt-3">We request read access to your contributions and repo metadata. Tokens stay server-side.</p>
+        <details class="mt-4 text-left">
+          <summary class="text-xs font-semibold text-muted cursor-pointer">Use a Personal Access Token instead</summary>
+          <form onsubmit="connectWithToken(event)" class="mt-2 space-y-2">
+            <input id="ghToken" type="password" required placeholder="github_pat_..." class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200 text-sm" />
+            <button type="submit" class="w-full py-2 rounded-xl border border-charcoal text-charcoal text-xs font-bold">Connect with Token</button>
+            <p class="text-[11px] text-muted">Create a token with read:user and repo scopes at https://github.com/settings/tokens</p>
+          </form>
+        </details>
       </div>`;
     return;
   }
@@ -1261,6 +1269,47 @@ async function connectGitHub() {
     });
     if (error) throw error;
   } catch (err) {
+    toastError(err);
+  }
+}
+
+async function connectWithToken(e) {
+  e.preventDefault();
+  const token = (document.getElementById("ghToken") || {}).value.trim();
+  if (!token) return;
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Verifying…";
+  }
+
+  try {
+    const res = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "CollabU",
+        Accept: "application/vnd.github+json"
+      }
+    });
+    if (!res.ok) throw new Error("GitHub token is invalid or expired");
+
+    const user = await res.json();
+    await API.storeGithubConnection(state.user.id, {
+      githubId: user.id,
+      githubLogin: user.login,
+      avatarUrl: user.avatar_url,
+      accessToken: token,
+      tokenScope: "personal-access-token"
+    });
+
+    await loadChallenge();
+    showToast("GitHub connected as @" + user.login);
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Connect with Token";
+    }
     toastError(err);
   }
 }
@@ -1923,6 +1972,7 @@ window.toggleShowcase = toggleShowcase;
 window.switchHackathonTab = switchHackathonTab;
 window.toggleEventRSVP = toggleEventRSVP;
 window.connectGitHub = connectGitHub;
+window.connectWithToken = connectWithToken;
 window.createChallengeTeam = createChallengeTeam;
 window.joinChallengeTeam = joinChallengeTeam;
 window.leaveChallengeTeam = leaveChallengeTeam;
