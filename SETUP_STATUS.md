@@ -68,19 +68,17 @@
 - Cron: evaluation at 00:10 UTC, reminder at 20:00 UTC.
 - Rules: 60% quorum (no all-or-nothing), 3 Streak Saves, 24h new-member grace,
   commits/PRs in the shared repo count as valid activity.
+- GitHub OAuth: enabled (client ID `Ov23liKtpXEwbAKvvdhr`).
+- Verified: `GET /auth/v1/authorize?provider=github` returns 302 to `github.com`
+  with the correct client ID and Supabase callback.
 
 ## Not configured yet
 
-- GitHub OAuth (create an OAuth app and paste Client ID/Secret into Supabase →
-  Authentication → Providers → GitHub).
+- Nothing required. Google and GitHub login are configured.
 
 ## Next steps
 
-1. Test "Continue with Google" in the browser. If Google shows an error, publish
-   the OAuth consent screen or add your Google account as a test user.
-2. Create a GitHub OAuth app (callback
-   `https://ffxgsnwbraangtxxukgt.supabase.co/auth/v1/callback`) and enable the
-   GitHub provider in Supabase.
-3. Create your real account through the app (the database is clean).
-4. Note: Supabase free projects pause after 7 days of inactivity; open the
+1. Test "Continue with Google" and "Continue with GitHub" in the browser.
+2. Create your real account through the app (the database is clean).
+3. Note: Supabase free projects pause after 7 days of inactivity; open the
    dashboard to restore.
