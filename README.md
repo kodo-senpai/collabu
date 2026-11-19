@@ -432,6 +432,20 @@ structure the original UI expects (`members` as names, `tasks[].assignee` as a n
 
 ---
 
+### 7.10 Free AI features
+
+- **Providers:** Puter.js (free, no API key, GPT-4o-mini) with a Pollinations.ai fallback and local rule-based fallbacks.
+- **Caching:** responses are cached in `ai_cache`, keyed by the SHA-256 of the prompt.
+- **Rate limit:** 15 seconds per user; the local fallback is used while cooling down.
+- **Features:**
+  - **AI Pitch Coach** in the apply modal.
+  - **AI Idea Check** in the post-idea modal.
+  - **AI Standup Summary** in the workspace chat.
+  - **AI Project Summary** in the project modal.
+- Puter may ask the user to sign in with a free Puter account on first use. If AI is unavailable, the local fallback still returns useful suggestions.
+
+---
+
 ## 8. Deployment Strategy (Zero Cost)
 
 ### 8.1 Push to GitHub
