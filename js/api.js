@@ -419,6 +419,35 @@
     if (error && error.code !== "23505") throw error;
   }
 
+  async function listBlockedUsers(userId) {
+    const { data: blockRows, error } = await sb()
+      .from("blocks")
+      .select("blocked_id")
+      .eq("blocker_id", userId);
+    if (error) throw error;
+
+    const ids = (blockRows || []).map((r) => r.blocked_id);
+    if (!ids.length) return [];
+
+    const { data: profiles, error: pErr } = await sb()
+      .from("profiles")
+      .select("id, name, initials, college")
+      .in("id", ids);
+    if (pErr) throw pErr;
+    return profiles || [];
+  }
+
+  async function createReport(payload) {
+    const { error } = await sb().from("reports").insert({
+      reporter_id: payload.reporterId,
+      target_type: payload.targetType,
+      target_id: payload.targetId,
+      reason: payload.reason,
+      details: payload.details || ""
+    });
+    if (error) throw error;
+  }
+
   async function unblockUser(blockerId, blockedId) {
     const { error } = await sb()
       .from("blocks")
@@ -546,9 +575,12 @@
         (e.organizer_id && (byId[e.organizer_id] || {}).name) ||
         (e.organizer_id && (byId[e.organizer_id] || {}).college) ||
         "CollabU",
+      organizerId: e.organizer_id || null,
       tag: e.tag || "Event",
       desc: e.description || "",
-      registered: rsvpSet.has(e.id)
+      registered: rsvpSet.has(e.id),
+      completed: !!e.completed_at,
+      completedAt: e.completed_at || null
     }));
   }
 
@@ -585,6 +617,19 @@
         .eq("user_id", userId);
       if (error) throw error;
     }
+  }
+
+  async function deleteEvent(eventId) {
+    const { error } = await sb().from("events").delete().eq("id", eventId);
+    if (error) throw error;
+  }
+
+  async function setEventCompleted(eventId, completed) {
+    const { error } = await sb()
+      .from("events")
+      .update({ completed_at: completed ? new Date().toISOString() : null })
+      .eq("id", eventId);
+    if (error) throw error;
   }
 
   async function listCommunities(userId) {
@@ -761,6 +806,8 @@
     listSavedIds,
     setSaved,
     listBlockedIds,
+    listBlockedUsers,
+    createReport,
     blockUser,
     unblockUser,
     connect,
@@ -776,6 +823,8 @@
     listEvents,
     createEvent,
     setRsvp,
+    deleteEvent,
+    setEventCompleted,
     listCommunities,
     setCommunityMembership,
     storeGithubConnection,

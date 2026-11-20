@@ -27,6 +27,7 @@ const state = {
   blockedIds: [],
   notifications: [],
   connections: [],
+  blockedUsers: [],
   challenge: { loading: false, loaded: false, connection: null, team: null, members: [], days: [], events: [] },
   _renderedWsId: null,
   _knownMyProjectIds: new Set(),
@@ -108,6 +109,7 @@ function shapeStudent(p, projects) {
     sem: showEdu ? p.semester || "" : "",
     role: p.role || "Student",
     availability: p.availability || "Open to Collaborate",
+    avatarUrl: p.avatar_url || "",
     verified: !!p.verified,
     skills: p.skills || [],
     interests: p.interests || [],
@@ -162,6 +164,7 @@ const profiles = await API.listProfiles();
   state.events = events;
   state.communities = communities;
   state.connections = conns;
+  state.blockedUsers = await API.listBlockedUsers(user.id);
 
   state._knownMyProjectIds = new Set(myIds);
   state._initialized = true;
@@ -502,6 +505,20 @@ async function toggleSaveProject(id) {
   }
 }
 
+function matchReason(s) {
+  const userSkills = (state.user?.skills || []).map((x) => x.toLowerCase());
+  const common = (s.skills || []).filter((sk) => userSkills.includes(sk.toLowerCase()));
+  if (common.length) return `You both know ${common.slice(0, 2).join(" and ")}`;
+  const userInterests = (state.user?.interests || []).map((x) => x.toLowerCase());
+  const sharedInterest = (s.interests || []).find((i) => userInterests.includes(i.toLowerCase()));
+  if (sharedInterest) return `Shared interest in ${sharedInterest}`;
+  if (s.college && state.user?.college && s.college.toLowerCase() === state.user.college.toLowerCase()) {
+    return "Same campus";
+  }
+  if (s.role && state.user?.role) return `${s.role} + ${state.user.role} — complementary roles`;
+  return "Strong skill overlap for your projects";
+}
+
 function renderTeammates() {
   const preview = document.getElementById("matchSkillsPreview");
   if (preview && state.user) preview.textContent = (state.user.skills || []).slice(0, 4).join(", ");
@@ -509,6 +526,30 @@ function renderTeammates() {
   const q = ((document.getElementById("teammateSearch") || {}).value || "").toLowerCase();
   const role = (document.getElementById("teammateRole") || {}).value || "All";
   const avail = (document.getElementById("teammateAvailability") || {}).value || "All";
+
+  const statsEl = document.getElementById("teammateStats");
+  if (statsEl) {
+    const builders = state.students.length + (state.user ? 1 : 0);
+    const colleges = new Set();
+    if (state.user?.college) colleges.add(state.user.college.toLowerCase());
+    state.students.forEach((s) => {
+      if (s.college) colleges.add(s.college.toLowerCase());
+    });
+    const skillCounts = {};
+    const allSkills = [...(state.user?.skills || []), ...state.students.flatMap((s) => s.skills || [])];
+    allSkills.forEach((sk) => {
+      const k = sk.toLowerCase();
+      skillCounts[k] = (skillCounts[k] || 0) + 1;
+    });
+    const topSkills = Object.entries(skillCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([k]) => k);
+    statsEl.innerHTML = `
+      <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-charcoal">${builders}</div><div class="text-xs text-muted">Builders</div></div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-charcoal">${colleges.size}</div><div class="text-xs text-muted">Colleges</div></div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-sm font-black text-limeu-dark leading-tight">${topSkills.length ? topSkills.join(", ") : "—"}</div><div class="text-xs text-muted mt-1">In-demand skills</div></div>`;
+  }
 
   const list = state.students
     .filter((s) => !state.blockedIds.includes(s.id))
@@ -534,13 +575,17 @@ function renderTeammates() {
   }
 
   grid.innerHTML = list
-    .map(
-      (s) => `
+    .map((s) => {
+      const avatar = s.avatarUrl
+        ? `<img src="${s.avatarUrl}" alt="${escapeHtml(s.name)}" class="w-11 h-11 rounded-full object-cover shrink-0" />`
+        : `<div class="w-11 h-11 rounded-full bg-charcoal text-limeu font-extrabold text-sm flex items-center justify-center shrink-0">${escapeHtml(s.initials)}</div>`;
+
+      return `
       <div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:border-limeu transition-all flex flex-col justify-between gap-4">
         <div class="space-y-3">
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-3">
-              <div class="w-11 h-11 rounded-full bg-charcoal text-limeu font-extrabold text-sm flex items-center justify-center shrink-0">${escapeHtml(s.initials)}</div>
+              ${avatar}
               <div>
                 <div class="font-bold text-base text-charcoal flex items-center gap-1.5">
                   <span>${escapeHtml(s.name)}</span>
@@ -552,6 +597,7 @@ function renderTeammates() {
             <span class="px-2.5 py-1 rounded-full bg-limeu-soft text-limeu-dark text-[11px] font-extrabold shrink-0">${s.match}% Match</span>
           </div>
           <div class="inline-block px-2.5 py-0.5 rounded-full bg-canvas border border-gray-200 text-[11px] font-semibold text-charcoal">${escapeHtml(s.role)} • ${escapeHtml(s.availability)}</div>
+          <div class="text-[11px] font-semibold text-limeu-dark">Why you match: ${escapeHtml(matchReason(s))}</div>
           <p class="text-xs text-muted leading-relaxed">${escapeHtml(s.bio)}</p>
           <div class="flex flex-wrap gap-1.5">
             ${s.skills.map((sk) => `<span class="px-2 py-0.5 rounded-md bg-canvas text-[11px] font-medium text-charcoal">${escapeHtml(sk)}</span>`).join("")}
@@ -561,8 +607,8 @@ function renderTeammates() {
           <button type="button" onclick="openStudentModal('${s.id}')" class="flex-1 py-2 rounded-xl bg-charcoal hover:bg-neutral-800 text-white text-xs font-semibold">Profile & Invite</button>
           <button type="button" onclick="connectStudent('${s.id}')" class="px-3.5 py-2 rounded-xl bg-canvas hover:bg-gray-200 text-charcoal text-xs font-semibold border border-gray-200">Connect</button>
         </div>
-      </div>`
-    )
+      </div>`;
+    })
     .join("");
 }
 
@@ -997,6 +1043,34 @@ function switchHackathonTab(tab) {
   renderHackathons();
 }
 
+const COMING_SOON = [
+  { icon: "🤖", title: "AI Build Weekend", desc: "A cross-campus sprint for AI agents, RAG apps, and open-source models." },
+  { icon: "🎨", title: "Design for Good", desc: "A UI/UX sprint with real NGO and campus-club briefs." },
+  { icon: "🌐", title: "Open Source Sprint", desc: "Ship your first merged PR with maintainers from real projects." },
+  { icon: "🚀", title: "Founder's Garage", desc: "Pitch and MVP a startup in 48 hours with cross-functional teams." }
+];
+
+function comingSoonBoard() {
+  return `
+    <div class="mt-8">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-xs font-bold uppercase tracking-widest text-muted">Coming Soon</span>
+        <span class="h-px flex-1 bg-gray-200"></span>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        ${COMING_SOON.map(
+          (c) => `
+          <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-5 flex flex-col gap-2">
+            <div class="text-2xl">${c.icon}</div>
+            <div class="font-extrabold text-sm text-charcoal">${escapeHtml(c.title)}</div>
+            <p class="text-xs text-muted leading-relaxed">${escapeHtml(c.desc)}</p>
+            <span class="mt-auto text-[10px] font-bold uppercase tracking-wider text-limeu-dark">Coming Soon</span>
+          </div>`
+        ).join("")}
+      </div>
+    </div>`;
+}
+
 function renderHackathons() {
   document.querySelectorAll(".htab-btn").forEach((b) => {
     b.classList.toggle("tab-pill-active", b.dataset.htab === state.activeHackathonTab);
@@ -1013,7 +1087,10 @@ function renderHackathons() {
             <span class="px-2.5 py-0.5 rounded-full bg-limeu-soft text-limeu-dark font-bold">${escapeHtml(ev.tag)}</span>
             <span class="text-muted font-medium">${escapeHtml(ev.mode)}</span>
           </div>
-          <h3 class="font-extrabold text-lg text-charcoal">${escapeHtml(ev.title)}</h3>
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold text-lg text-charcoal">${escapeHtml(ev.title)}</h3>
+            ${ev.completed ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">✓ Completed</span>' : ""}
+          </div>
           <div class="text-xs font-semibold text-charcoal">📅 ${escapeHtml(ev.date)} • ${escapeHtml(ev.organizer)}</div>
           <p class="text-xs text-muted leading-relaxed">${escapeHtml(ev.desc)}</p>
         </div>
@@ -1023,7 +1100,11 @@ function renderHackathons() {
           </button>
           <button type="button" onclick="navigateTo('teammates')" class="px-3 py-2 rounded-xl bg-canvas border border-gray-200 text-xs font-semibold hover:bg-gray-200">Find Team</button>
         </div>
-      </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No events yet. Organize the first hackathon or workshop.</div>'}</div>`;
+        ${ev.organizerId === state.user.id ? `<div class="flex gap-2 pt-3 border-t border-gray-100">
+          <button type="button" onclick="toggleEventCompleted('${ev.id}')" class="flex-1 py-2 rounded-xl text-xs font-semibold ${ev.completed ? "bg-emerald-100 text-emerald-800" : "bg-canvas border border-gray-200"}">${ev.completed ? "✓ Completed" : "Mark Completed"}</button>
+          <button type="button" onclick="deleteEvent('${ev.id}')" class="px-3 py-2 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-semibold">Delete</button>
+        </div>` : ""}
+      </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No events yet. Organize the first hackathon or workshop.</div>'}</div>${comingSoonBoard()}`;
   } else if (state.activeHackathonTab === "communities") {
     container.innerHTML = `<div class="grid sm:grid-cols-2 gap-5">${state.communities.length ? state.communities.map((c) => `
       <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex items-center justify-between gap-4">
@@ -1061,6 +1142,97 @@ async function toggleEventRSVP(id) {
   } catch (err) {
     ev.registered = !next;
     renderHackathons();
+    toastError(err);
+  }
+}
+
+async function toggleEventCompleted(id) {
+  const ev = state.events.find((e) => e.id === id);
+  if (!ev) return;
+  const next = !ev.completed;
+  ev.completed = next;
+  ev.completedAt = next ? new Date().toISOString() : null;
+  renderHackathons();
+  try {
+    await API.setEventCompleted(id, next);
+    showToast(next ? "Event marked completed" : "Event reopened");
+  } catch (err) {
+    ev.completed = !next;
+    renderHackathons();
+    toastError(err);
+  }
+}
+
+async function deleteEvent(id) {
+  if (!confirm("Delete this event? This cannot be undone.")) return;
+  try {
+    await API.deleteEvent(id);
+    await refreshAll();
+    showToast("Event deleted");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function deleteProject(projId) {
+  if (!confirm("Delete this project? This cannot be undone.")) return;
+  try {
+    await API.deleteProject(projId);
+    closeModal();
+    await refreshAll();
+    showToast("Project deleted");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+function openReportModal(targetType, targetId, targetName) {
+  openModal(`
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black text-charcoal">Report ${escapeHtml(targetName || targetType)}</h2>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+    </div>
+    <form onsubmit="submitReport(event, '${targetType}', '${targetId}')" class="space-y-3 text-sm">
+      <div>
+        <label class="block text-xs font-bold text-muted uppercase mb-1">Reason</label>
+        <select id="reportReason" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200">
+          <option>Spam or misleading</option>
+          <option>Harassment or hate</option>
+          <option>Inappropriate content</option>
+          <option>Impersonation</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-muted uppercase mb-1">Details (optional)</label>
+        <textarea id="reportDetails" rows="2" placeholder="Add any context..." class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200"></textarea>
+      </div>
+      <button type="submit" class="w-full py-2.5 rounded-xl bg-charcoal text-white text-xs font-bold">Submit Report →</button>
+    </form>
+  `);
+}
+
+async function submitReport(e, targetType, targetId) {
+  e.preventDefault();
+  const reason = (document.getElementById("reportReason") || {}).value || "Other";
+  const details = (document.getElementById("reportDetails") || {}).value.trim();
+  try {
+    await API.createReport({ reporterId: state.user.id, targetType, targetId, reason, details });
+    closeModal();
+    showToast("Report submitted. Thank you.");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function unblockUser(id) {
+  try {
+    await API.unblockUser(state.user.id, id);
+    state.blockedIds = state.blockedIds.filter((x) => x !== id);
+    state.blockedUsers = (state.blockedUsers || []).filter((u) => u.id !== id);
+    renderDashboard();
+    showToast("User unblocked");
+  } catch (err) {
     toastError(err);
   }
 }
@@ -1511,13 +1683,17 @@ function renderDashboard() {
   }
 
   const activeCount = myProjects().length;
+  const completedProjects = state.projects.filter((p) => p.completed).length;
+  const completedEvents = state.events.filter((e) => e.completed).length;
   const stats = document.getElementById("dashStats");
   if (stats) {
     stats.innerHTML = `
       <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-charcoal">${activeCount}</div><div class="text-xs text-muted mt-0.5">Active Teams</div></div>
       <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-charcoal">${state.applications.length}</div><div class="text-xs text-muted mt-0.5">Applications Tracked</div></div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-limeu-dark">${completedProjects}</div><div class="text-xs text-muted mt-0.5">Completed Projects</div></div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-limeu-dark">${completedEvents}</div><div class="text-xs text-muted mt-0.5">Completed Events</div></div>
       <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-charcoal">${state.savedIds.length}</div><div class="text-xs text-muted mt-0.5">Saved Ideas</div></div>
-      <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-limeu-dark">${u.skills.length}</div><div class="text-xs text-muted mt-0.5">Verified Skills</div></div>`;
+      <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-charcoal">${u.skills.length}</div><div class="text-xs text-muted mt-0.5">Verified Skills</div></div>`;
   }
 
   setValue("profName", u.name);
@@ -1587,6 +1763,25 @@ function renderDashboard() {
       : '<div class="text-xs text-muted">No saved opportunities yet.</div>';
   }
 
+  const blocked = state.blockedUsers || [];
+  const blockedList = document.getElementById("blockedUsersList");
+  if (blockedList) {
+    blockedList.innerHTML = blocked.length
+      ? blocked
+          .map(
+            (bu) => `
+        <div class="p-3 rounded-xl bg-canvas border border-gray-200 flex items-center justify-between text-xs">
+          <div class="min-w-0">
+            <div class="font-bold text-charcoal truncate">${escapeHtml(bu.name)}</div>
+            <div class="text-muted truncate">${escapeHtml(bu.college || "")}</div>
+          </div>
+          <button type="button" onclick="unblockUser('${bu.id}')" class="text-xs font-semibold text-limeu-dark shrink-0">Unblock</button>
+        </div>`
+          )
+          .join("")
+      : '<div class="text-xs text-muted">No blocked users.</div>';
+  }
+
   renderConnections();
 }
 
@@ -1628,10 +1823,24 @@ async function handleAvatarChange(e) {
     showToast("Please choose an image file");
     return;
   }
-  if (file.size > 2 * 1024 * 1024) {
-    showToast("Image must be smaller than 2 MB");
+  if (file.size > 5 * 1024 * 1024) {
+    showToast("Image must be smaller than 5 MB");
     return;
   }
+
+  // Instant local preview before upload.
+  const preview = document.getElementById("profAvatarPreview");
+  if (preview) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      preview.textContent = "";
+      preview.style.backgroundImage = `url("${reader.result}")`;
+      preview.style.backgroundSize = "cover";
+      preview.style.backgroundPosition = "center";
+    };
+    reader.readAsDataURL(file);
+  }
+
   try {
     const url = await API.uploadAvatar(state.user.id, file);
     const updated = await API.updateProfile(state.user.id, { avatar_url: url });
@@ -1790,6 +1999,11 @@ function openProjectModal(projId) {
         <button type="submit" class="w-full py-3 rounded-full bg-charcoal hover:bg-neutral-800 text-white text-sm font-semibold">Send Collaboration Request →</button>
       </form>
     `}
+    <div class="flex items-center justify-between gap-2 pt-2">
+      ${p.creatorId === state.user.id
+        ? `<button type="button" onclick="deleteProject('${p.id}')" class="text-xs font-semibold text-red-600 hover:underline">Delete Project</button>`
+        : `<span></span><button type="button" onclick="openReportModal('project', '${p.id}', '${escapeHtml(p.title)}')" class="text-xs font-semibold text-muted hover:text-red-600">Report</button>`}
+    </div>
   `);
 }
 
@@ -1819,11 +2033,14 @@ function openStudentModal(stuId) {
   const s = state.students.find((x) => x.id === stuId);
   if (!s) return;
   const myOwned = state.projects.filter((p) => p.creatorId === state.user.id);
+  const avatar = s.avatarUrl
+    ? `<img src="${s.avatarUrl}" alt="${escapeHtml(s.name)}" class="w-12 h-12 rounded-full object-cover" />`
+    : `<div class="w-12 h-12 rounded-full bg-charcoal text-limeu font-black flex items-center justify-center">${escapeHtml(s.initials)}</div>`;
 
   openModal(`
     <div class="flex items-start justify-between mb-4">
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-full bg-charcoal text-limeu font-black flex items-center justify-center">${escapeHtml(s.initials)}</div>
+        ${avatar}
         <div>
           <h2 class="text-xl font-black text-charcoal">${escapeHtml(s.name)} ${s.verified ? '<span class="text-emerald-600 text-sm">✓ Verified</span>' : ""}</h2>
           <p class="text-xs text-muted">${escapeHtml(s.college)}${s.dept ? " • " + escapeHtml(s.dept) : ""}${s.sem ? " (" + escapeHtml(s.sem) + ")" : ""}</p>
@@ -1844,7 +2061,7 @@ function openStudentModal(stuId) {
         <button type="button" onclick="inviteStudentToProj('${s.id}')" class="px-4 py-2 rounded-xl bg-charcoal text-white text-xs font-semibold">Invite</button>
       </div>
       <div class="flex gap-3 text-xs">
-        <button type="button" onclick="showToast('Reported for moderation review'); closeModal()" class="text-muted hover:text-red-600 font-semibold">Report</button>
+        <button type="button" onclick="openReportModal('user', '${s.id}', '${escapeHtml(s.name)}')" class="text-muted hover:text-red-600 font-semibold">Report</button>
         <button type="button" onclick="blockStudent('${s.id}')" class="text-muted hover:text-red-600 font-semibold">Block User</button>
       </div>
     </div>`);
@@ -2091,6 +2308,12 @@ window.handleJoinRequest = handleJoinRequest;
 window.toggleShowcase = toggleShowcase;
 window.switchHackathonTab = switchHackathonTab;
 window.toggleEventRSVP = toggleEventRSVP;
+window.toggleEventCompleted = toggleEventCompleted;
+window.deleteEvent = deleteEvent;
+window.deleteProject = deleteProject;
+window.openReportModal = openReportModal;
+window.submitReport = submitReport;
+window.unblockUser = unblockUser;
 window.connectGitHub = connectGitHub;
 window.connectWithToken = connectWithToken;
 window.aiCoachPitch = aiCoachPitch;
