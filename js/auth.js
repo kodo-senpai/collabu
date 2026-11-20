@@ -121,7 +121,9 @@
               </div>
               <div>
                 <label for="signupCollege" class="block text-[11px] font-bold uppercase tracking-wide text-muted mb-1">College</label>
-                <input id="signupCollege" class="gate-input" type="text" required autocomplete="organization" value="CGC University (CGCU)" readonly />
+                <select id="signupCollege" class="gate-input" required>
+                <option>CGC University (CGCU)</option>
+              </select>
               </div>
             </div>
             <div>

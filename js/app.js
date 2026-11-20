@@ -375,7 +375,7 @@ function renderHomeStats() {
   strip.innerHTML = entries
     .map(
       ([name, count]) =>
-        `<span class="flex items-center gap-1.5"><span class="w-5 h-5 rounded bg-gray-200/80 inline-flex items-center justify-center text-[10px]">🏛</span> ${escapeHtml(name)}${count > 1 ? ` <span class="text-limeu-dark">(${count})</span>` : ""}</span>`
+        `<span class="flex items-center gap-1.5"><span class="w-5 h-5 rounded bg-gray-200/80 inline-flex items-center justify-center text-[10px]">${icon("building", "w-3 h-3")}</span> ${escapeHtml(name)}${count > 1 ? ` <span class="text-limeu-dark">(${count})</span>` : ""}</span>`
     )
     .join("");
 }
@@ -482,7 +482,7 @@ function renderMarketplace() {
         </div>
         <div class="space-y-3 pt-3 border-t border-gray-100">
           <div class="flex items-center justify-between text-[11px] text-muted">
-            <span>🏛 ${escapeHtml(p.college)} ${p.crossCollege ? "• 🌐 Cross-College" : ""}</span>
+            <span class="inline-flex items-center gap-1">${icon("building", "w-3.5 h-3.5")} ${escapeHtml(p.college)} ${p.crossCollege ? `• ${icon("globe", "w-3.5 h-3.5 inline")} Cross-College` : ""}</span>
             <span class="font-semibold text-charcoal">${p.members.length}/${p.teamSize} Joined</span>
           </div>
           <div class="text-[11px] text-muted"><strong class="text-charcoal">Needed:</strong> ${p.neededRoles.map((r) => escapeHtml(r)).join(", ")}</div>
@@ -512,9 +512,6 @@ function matchReason(s) {
   const userInterests = (state.user?.interests || []).map((x) => x.toLowerCase());
   const sharedInterest = (s.interests || []).find((i) => userInterests.includes(i.toLowerCase()));
   if (sharedInterest) return `Shared interest in ${sharedInterest}`;
-  if (s.college && state.user?.college && s.college.toLowerCase() === state.user.college.toLowerCase()) {
-    return "Same campus";
-  }
   if (s.role && state.user?.role) return `${s.role} + ${state.user.role} — complementary roles`;
   return "Strong skill overlap for your projects";
 }
@@ -589,7 +586,7 @@ function renderTeammates() {
               <div>
                 <div class="font-bold text-base text-charcoal flex items-center gap-1.5">
                   <span>${escapeHtml(s.name)}</span>
-                  ${s.verified ? '<span class="w-4 h-4 rounded-full bg-emerald-500 text-white text-[10px] inline-flex items-center justify-center">✓</span>' : ""}
+                  ${s.verified ? `<span class="w-4 h-4 rounded-full bg-emerald-500 text-white inline-flex items-center justify-center">${icon("check", "w-3 h-3")}</span>` : ""}
                 </div>
                 <div class="text-xs text-muted">${escapeHtml(s.college)}${s.sem ? " • " + escapeHtml(s.sem) : ""}</div>
               </div>
@@ -756,7 +753,7 @@ function renderWorkspaces() {
         <div class="flex items-center gap-2">
           <h2 class="text-xl font-extrabold text-charcoal">${escapeHtml(active.title)}</h2>
           <span class="px-2.5 py-0.5 rounded-full bg-limeu-soft text-limeu-dark text-[11px] font-bold">${escapeHtml(active.category)}</span>
-          ${active.completed ? '<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">Showcased ✓</span>' : ""}
+          ${active.completed ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold inline-flex items-center gap-1">${icon("check", "w-3 h-3")} Showcased</span>` : ""}
         </div>
         <p class="text-xs text-muted mt-0.5">${escapeHtml(active.tagline)} • ${active.members.length} members</p>
       </div>
@@ -840,7 +837,7 @@ function renderWorkspaces() {
         <div>
           <h3 class="text-xs font-bold uppercase tracking-wider text-muted mb-2.5">Active Team Members (${active.members.length}/${active.teamSize})</h3>
           <div class="flex flex-wrap gap-2">
-            ${active.members.map((m) => `<span class="px-3.5 py-1.5 rounded-full bg-canvas border border-gray-200 text-xs font-semibold text-charcoal">👤 ${escapeHtml(m)}</span>`).join("")}
+            ${active.members.map((m) => `<span class="px-3.5 py-1.5 rounded-full bg-canvas border border-gray-200 text-xs font-semibold text-charcoal inline-flex items-center gap-1">${icon("user", "w-3.5 h-3.5")} ${escapeHtml(m)}</span>`).join("")}
           </div>
         </div>
         <div>
@@ -866,7 +863,7 @@ function renderWorkspaces() {
             <div class="text-xs text-muted">Mark project completed to feature it in the public showcase.</div>
           </div>
           <button type="button" onclick="toggleShowcase('${active.id}')" class="px-4 py-2 rounded-full text-xs font-bold ${active.completed ? "bg-emerald-100 text-emerald-800" : "bg-limeu text-charcoal"}">
-            ${active.completed ? "✓ Showcased Publicly" : "Publish to Showcase"}
+            ${active.completed ? "Showcased Publicly" : "Publish to Showcase"}
           </button>
         </div>
       </div>`;
@@ -1043,34 +1040,6 @@ function switchHackathonTab(tab) {
   renderHackathons();
 }
 
-const COMING_SOON = [
-  { icon: "🤖", title: "AI Build Weekend", desc: "A cross-campus sprint for AI agents, RAG apps, and open-source models." },
-  { icon: "🎨", title: "Design for Good", desc: "A UI/UX sprint with real NGO and campus-club briefs." },
-  { icon: "🌐", title: "Open Source Sprint", desc: "Ship your first merged PR with maintainers from real projects." },
-  { icon: "🚀", title: "Founder's Garage", desc: "Pitch and MVP a startup in 48 hours with cross-functional teams." }
-];
-
-function comingSoonBoard() {
-  return `
-    <div class="mt-8">
-      <div class="flex items-center gap-3 mb-4">
-        <span class="text-xs font-bold uppercase tracking-widest text-muted">Coming Soon</span>
-        <span class="h-px flex-1 bg-gray-200"></span>
-      </div>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        ${COMING_SOON.map(
-          (c) => `
-          <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-5 flex flex-col gap-2">
-            <div class="text-2xl">${c.icon}</div>
-            <div class="font-extrabold text-sm text-charcoal">${escapeHtml(c.title)}</div>
-            <p class="text-xs text-muted leading-relaxed">${escapeHtml(c.desc)}</p>
-            <span class="mt-auto text-[10px] font-bold uppercase tracking-wider text-limeu-dark">Coming Soon</span>
-          </div>`
-        ).join("")}
-      </div>
-    </div>`;
-}
-
 function renderHackathons() {
   document.querySelectorAll(".htab-btn").forEach((b) => {
     b.classList.toggle("tab-pill-active", b.dataset.htab === state.activeHackathonTab);
@@ -1089,14 +1058,14 @@ function renderHackathons() {
           </div>
           <div class="flex items-center gap-2">
             <h3 class="font-extrabold text-lg text-charcoal">${escapeHtml(ev.title)}</h3>
-            ${ev.completed ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">✓ Completed</span>' : ""}
+            ${ev.completed ? `<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center gap-1">${icon("check", "w-3 h-3")} Completed</span>` : ""}
           </div>
-          <div class="text-xs font-semibold text-charcoal">📅 ${escapeHtml(ev.date)} • ${escapeHtml(ev.organizer)}</div>
+          <div class="text-xs font-semibold text-charcoal inline-flex items-center gap-1">${icon("calendar", "w-3.5 h-3.5")} ${escapeHtml(ev.date)} • ${escapeHtml(ev.organizer)}</div>
           <p class="text-xs text-muted leading-relaxed">${escapeHtml(ev.desc)}</p>
         </div>
         <div class="flex gap-2 pt-3 border-t border-gray-100">
           <button type="button" onclick="toggleEventRSVP('${ev.id}')" class="flex-1 py-2 rounded-xl text-xs font-semibold ${ev.registered ? "bg-emerald-100 text-emerald-800" : "bg-charcoal text-white hover:bg-neutral-800"}">
-            ${ev.registered ? "✓ Registered" : "RSVP / Register"}
+            ${ev.registered ? "Registered" : "RSVP / Register"}
           </button>
           <button type="button" onclick="navigateTo('teammates')" class="px-3 py-2 rounded-xl bg-canvas border border-gray-200 text-xs font-semibold hover:bg-gray-200">Find Team</button>
         </div>
@@ -1111,17 +1080,17 @@ function renderHackathons() {
         <div>
           <h3 class="font-extrabold text-base text-charcoal">${escapeHtml(c.name)}</h3>
           <p class="text-xs text-muted mt-1">${escapeHtml(c.focus)}</p>
-          <div class="text-xs font-bold text-limeu-dark mt-2">👥 ${escapeHtml(c.members)}</div>
+          <div class="text-xs font-bold text-limeu-dark mt-2 inline-flex items-center gap-1">${icon("users", "w-3.5 h-3.5")} ${escapeHtml(c.members)}</div>
         </div>
         <button type="button" onclick="toggleCommunity('${c.id}', ${c.joined ? "false" : "true"})" class="px-4 py-2 rounded-full text-xs font-semibold shrink-0 ${c.joined ? "bg-emerald-100 text-emerald-800" : "bg-charcoal text-white hover:bg-neutral-800"}">
-          ${c.joined ? "✓ Joined" : "Join Space"}
+          ${c.joined ? "Joined" : "Join Space"}
         </button>
       </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No communities yet.</div>'}</div>`;
   } else {
     const completed = state.projects.filter((p) => p.completed);
     container.innerHTML = `<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">${completed.length ? completed.map((p) => `
       <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-3">
-        <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">✓ Completed Build</span>
+        <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold inline-flex items-center gap-1">${icon("check", "w-3 h-3")} Completed Build</span>
         <h3 class="font-extrabold text-lg text-charcoal">${escapeHtml(p.title)}</h3>
         <p class="text-xs text-muted">${escapeHtml(p.description)}</p>
         <div class="text-xs font-semibold text-charcoal">Team: ${p.members.map((m) => escapeHtml(m)).join(", ")}</div>
@@ -1190,7 +1159,7 @@ function openReportModal(targetType, targetId, targetName) {
   openModal(`
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-black text-charcoal">Report ${escapeHtml(targetName || targetType)}</h2>
-      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
     </div>
     <form onsubmit="submitReport(event, '${targetType}', '${targetId}')" class="space-y-3 text-sm">
       <div>
@@ -1309,7 +1278,7 @@ function renderChallenges() {
   if (!c.connection) {
     container.innerHTML = `
       <div class="max-w-2xl mx-auto bg-white rounded-2xl border border-gray-200 p-8 text-center shadow-sm">
-        <div class="text-4xl mb-3">🔥</div>
+        <div class="mb-3">${icon("flame", "w-10 h-10 text-limeu-dark")}</div>
         <h1 class="text-2xl font-black text-charcoal">Team Streak Challenge</h1>
         <p class="text-sm text-muted mt-2 leading-relaxed">
           Connect your GitHub account to create or join a team. Keep at least 60% of the team pushing every UTC day to grow your streak. You get 3 Streak Saves to survive missed days.
@@ -1420,7 +1389,7 @@ function renderChallenges() {
                   <div class="text-[11px] text-muted truncate">@${escapeHtml(m.githubLogin || "github")}</div>
                 </div>
               </div>
-              <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${m.pushed ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}">${m.pushed ? "Pushed ✓" : "Not yet"}</span>
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${m.pushed ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}">${m.pushed ? `Pushed ${icon("check", "w-3 h-3 inline")}` : "Not yet"}</span>
             </div>`).join("") : '<div class="text-xs text-muted">No members yet.</div>'}
         </div>
       </div>
@@ -1623,7 +1592,7 @@ async function aiSummarizeChat(projId) {
     openModal(`
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-black text-charcoal">AI Standup Summary</h2>
-        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
       </div>
       <div class="text-sm text-charcoal whitespace-pre-line">${escapeHtml(text)}</div>
       <p class="text-[11px] text-muted mt-3">Generated by a free AI model. Review before acting.</p>
@@ -1871,7 +1840,7 @@ function openPostIdeaModal() {
   openModal(`
     <div class="flex items-center justify-between mb-5">
       <h2 class="text-xl font-black text-charcoal">Post a New Project Idea</h2>
-      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
     </div>
     <form onsubmit="submitNewIdea(event)" class="space-y-4 text-sm">
       <div>
@@ -1970,7 +1939,7 @@ function openProjectModal(projId) {
         <h2 class="text-2xl font-black text-charcoal mt-1.5">${escapeHtml(p.title)}</h2>
         <p class="text-xs text-muted mt-0.5">Led by ${escapeHtml(p.creatorName)} (${escapeHtml(p.college)})</p>
       </div>
-      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
     </div>
     <div class="flex items-center justify-between mb-1">
       <span class="text-xs font-bold text-muted uppercase">About the project</span>
@@ -2053,11 +2022,11 @@ async function openStudentModal(stuId) {
         <div class="flex items-center gap-3">
           ${avatar}
           <div>
-            <h2 class="text-xl font-black text-charcoal">${escapeHtml(s.name)} ${s.verified ? '<span class="text-emerald-600 text-sm">✓ Verified</span>' : ""}</h2>
+            <h2 class="text-xl font-black text-charcoal">${escapeHtml(s.name)} ${s.verified ? `<span class="text-emerald-600 text-sm inline-flex items-center gap-1">${icon("check", "w-4 h-4")} Verified</span>` : ""}</h2>
             <p class="text-xs text-muted">${escapeHtml(s.college)}${s.dept ? " • " + escapeHtml(s.dept) : ""}${s.sem ? " (" + escapeHtml(s.sem) + ")" : ""}</p>
           </div>
         </div>
-        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
       </div>
 
       <div class="grid grid-cols-2 gap-2 mb-4">
@@ -2066,7 +2035,7 @@ async function openStudentModal(stuId) {
       </div>
 
       <p class="text-sm text-charcoal mb-3">${escapeHtml(s.bio)}</p>
-      <div class="p-3 rounded-xl bg-limeu-soft/50 text-xs font-semibold text-charcoal mb-4">🏅 ${escapeHtml(s.achievements)}</div>
+      <div class="p-3 rounded-xl bg-limeu-soft/50 text-xs font-semibold text-charcoal mb-4 inline-flex items-center gap-2">${icon("medal", "w-4 h-4")} ${escapeHtml(s.achievements)}</div>
       <div class="flex flex-wrap gap-1.5 mb-5">
         ${s.skills.map((sk) => `<span class="px-2.5 py-1 rounded-full bg-canvas border border-gray-200 text-xs font-semibold">${escapeHtml(sk)}</span>`).join("")}
       </div>
@@ -2129,7 +2098,7 @@ function openOrganizeEventModal() {
   openModal(`
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-black text-charcoal">Organize Hackathon or Workshop</h2>
-      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
     </div>
     <form onsubmit="submitNewEvent(event)" class="space-y-3 text-sm">
       <input id="evTitle" type="text" required placeholder="Event Title" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" />
