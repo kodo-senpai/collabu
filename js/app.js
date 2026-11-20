@@ -79,7 +79,7 @@ function shapeUser(p) {
     id: p.id,
     name: p.name || "Student",
     initials: p.initials || API.initialsOf(p.name),
-    college: p.college || "",
+    college: p.college || "CGC University (CGCU)",
     department: p.department || "",
     semester: p.semester || "",
     role: p.role || "Student",
@@ -1128,9 +1128,6 @@ function renderHackathons() {
         <button type="button" onclick="openProjectModal('${p.id}')" class="text-xs font-bold text-limeu-dark hover:underline">View Portfolio Details →</button>
       </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No completed projects showcased yet.</div>'}</div>`;
   }
-
-  const comingEl = document.getElementById("hackathonsComingSoon");
-  if (comingEl) comingEl.innerHTML = comingSoonBoard();
 }
 
 async function toggleEventRSVP(id) {

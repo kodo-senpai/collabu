@@ -173,7 +173,7 @@
         <div class="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           <div class="lg:col-span-6 space-y-6">
             <div class="inline-flex items-center gap-2 text-[11px] sm:text-xs font-bold tracking-widest uppercase text-muted">
-              <span>CROSS-COLLEGE STUDENT COLLABORATION ECOSYSTEM</span>
+              <span>CGC UNIVERSITY STUDENT COLLABORATION ECOSYSTEM</span>
               <span class="w-2 h-2 rounded-full bg-limeu inline-block"></span>
             </div>
 
@@ -183,8 +183,12 @@
             </h1>
 
             <p class="text-base sm:text-lg text-muted max-w-xl leading-relaxed">
-              CollabU connects students across campuses to turn ambitious ideas into real-world projects. Find co-founders, team up, and build together.
+              CollabU connects students at CGC University to turn ambitious ideas into real-world projects. Find co-founders, team up, and build together.
             </p>
+
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-limeu-soft border border-limeu/30 text-[11px] font-bold text-charcoal">
+              🏛 Built for the students of CGC University
+            </div>
 
             <div class="flex flex-wrap items-center gap-3 pt-1">
               <button type="button" onclick="navigateTo('explore')" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-charcoal hover:bg-neutral-800 text-white font-semibold text-sm transition-all shadow-md hover:-translate-y-0.5">
@@ -237,7 +241,7 @@
       <!-- Campus Trust Strip -->
       <div class="border-y border-gray-200 bg-white/70">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-wrap items-center justify-between gap-4">
-          <span class="text-[11px] font-bold tracking-widest uppercase text-muted">STUDENTS COLLABORATING ACROSS CAMPUSES</span>
+          <span class="text-[11px] font-bold tracking-widest uppercase text-muted">CGC UNIVERSITY STUDENTS COLLABORATING</span>
           <div id="collegeStrip" class="flex flex-wrap items-center gap-6 sm:gap-8 text-xs font-bold text-gray-500 uppercase tracking-wider">
             <span class="text-muted">Your campus could be next.</span>
           </div>
@@ -593,7 +597,16 @@
       </div>
 
       <div id="hackathonsContent"></div>
-      <div id="hackathonsComingSoon" class="mt-8"></div>
+
+      <div class="mt-8 rounded-2xl border border-amber-300 bg-amber-50 p-6 flex flex-col sm:flex-row items-center gap-5">
+        <div class="w-16 h-16 rounded-full bg-red-100 border-4 border-red-500 flex items-center justify-center shrink-0">
+          <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="3" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M6 12h12" stroke-linecap="round" /></svg>
+        </div>
+        <div>
+          <div class="text-xs font-black uppercase tracking-widest text-amber-700">Currently under developing stage...</div>
+          <p class="text-sm text-charcoal mt-1">New hackathons, workshops, and community events are being built. Check back soon.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ==================== VIEW 6: PERSONAL DASHBOARD & PROFILE ==================== -->
@@ -630,7 +643,7 @@
               </div>
               <div>
                 <label class="block text-xs font-bold text-muted uppercase mb-1">College / University</label>
-                <input id="profCollege" type="text" required class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" />
+                <input id="profCollege" type="text" required class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200 bg-gray-50" value="CGC University (CGCU)" readonly />
               </div>
               <div>
                 <label class="block text-xs font-bold text-muted uppercase mb-1">Department / Major</label>
