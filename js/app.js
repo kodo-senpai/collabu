@@ -1104,7 +1104,7 @@ function renderHackathons() {
           <button type="button" onclick="toggleEventCompleted('${ev.id}')" class="flex-1 py-2 rounded-xl text-xs font-semibold ${ev.completed ? "bg-emerald-100 text-emerald-800" : "bg-canvas border border-gray-200"}">${ev.completed ? "✓ Completed" : "Mark Completed"}</button>
           <button type="button" onclick="deleteEvent('${ev.id}')" class="px-3 py-2 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-semibold">Delete</button>
         </div>` : ""}
-      </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No events yet. Organize the first hackathon or workshop.</div>'}</div>${comingSoonBoard()}`;
+      </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No events yet. Organize the first hackathon or workshop.</div>'}</div>`;
   } else if (state.activeHackathonTab === "communities") {
     container.innerHTML = `<div class="grid sm:grid-cols-2 gap-5">${state.communities.length ? state.communities.map((c) => `
       <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex items-center justify-between gap-4">
@@ -1128,6 +1128,9 @@ function renderHackathons() {
         <button type="button" onclick="openProjectModal('${p.id}')" class="text-xs font-bold text-limeu-dark hover:underline">View Portfolio Details →</button>
       </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No completed projects showcased yet.</div>'}</div>`;
   }
+
+  const comingEl = document.getElementById("hackathonsComingSoon");
+  if (comingEl) comingEl.innerHTML = comingSoonBoard();
 }
 
 async function toggleEventRSVP(id) {
@@ -2029,42 +2032,76 @@ async function submitApplication(e, projId) {
   }
 }
 
-function openStudentModal(stuId) {
-  const s = state.students.find((x) => x.id === stuId);
+async function openStudentModal(stuId) {
+  let s = state.students.find((x) => x.id === stuId);
+  if (!s) {
+    try {
+      const p = await API.getProfileById(stuId);
+      if (!p) return;
+      s = shapeStudent(p, state.projects);
+    } catch (_) {
+      return;
+    }
+  }
   if (!s) return;
+
   const myOwned = state.projects.filter((p) => p.creatorId === state.user.id);
   const avatar = s.avatarUrl
-    ? `<img src="${s.avatarUrl}" alt="${escapeHtml(s.name)}" class="w-12 h-12 rounded-full object-cover" />`
-    : `<div class="w-12 h-12 rounded-full bg-charcoal text-limeu font-black flex items-center justify-center">${escapeHtml(s.initials)}</div>`;
+    ? `<img src="${s.avatarUrl}" alt="${escapeHtml(s.name)}" class="w-14 h-14 rounded-full object-cover ring-2 ring-limeu/50" />`
+    : `<div class="w-14 h-14 rounded-full bg-charcoal text-limeu font-black flex items-center justify-center">${escapeHtml(s.initials)}</div>`;
 
   openModal(`
-    <div class="flex items-start justify-between mb-4">
-      <div class="flex items-center gap-3">
-        ${avatar}
-        <div>
-          <h2 class="text-xl font-black text-charcoal">${escapeHtml(s.name)} ${s.verified ? '<span class="text-emerald-600 text-sm">✓ Verified</span>' : ""}</h2>
-          <p class="text-xs text-muted">${escapeHtml(s.college)}${s.dept ? " • " + escapeHtml(s.dept) : ""}${s.sem ? " (" + escapeHtml(s.sem) + ")" : ""}</p>
+    <div class="animate-in">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          ${avatar}
+          <div>
+            <h2 class="text-xl font-black text-charcoal">${escapeHtml(s.name)} ${s.verified ? '<span class="text-emerald-600 text-sm">✓ Verified</span>' : ""}</h2>
+            <p class="text-xs text-muted">${escapeHtml(s.college)}${s.dept ? " • " + escapeHtml(s.dept) : ""}${s.sem ? " (" + escapeHtml(s.sem) + ")" : ""}</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-charcoal">${s.projectsCount || 0}</div><div class="text-[11px] text-muted">Projects</div></div>
+        <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-limeu-dark">${s.skills.length}</div><div class="text-[11px] text-muted">Skills</div></div>
+      </div>
+
+      <p class="text-sm text-charcoal mb-3">${escapeHtml(s.bio)}</p>
+      <div class="p-3 rounded-xl bg-limeu-soft/50 text-xs font-semibold text-charcoal mb-4">🏅 ${escapeHtml(s.achievements)}</div>
+      <div class="flex flex-wrap gap-1.5 mb-5">
+        ${s.skills.map((sk) => `<span class="px-2.5 py-1 rounded-full bg-canvas border border-gray-200 text-xs font-semibold">${escapeHtml(sk)}</span>`).join("")}
+      </div>
+
+      <div class="pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-2 justify-between items-center">
+        <div class="flex gap-2 w-full sm:w-auto">
+          <select id="inviteProjSel" class="px-3 py-2 rounded-xl bg-canvas border border-gray-200 text-xs flex-1">
+            ${myOwned.length ? myOwned.map((p) => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join("") : '<option value="">No projects yet</option>'}
+          </select>
+          <button type="button" onclick="inviteStudentToProj('${s.id}')" class="px-3.5 py-2 rounded-xl bg-charcoal text-white text-xs font-semibold">Invite</button>
+          <button type="button" onclick="shareProfile('${s.id}')" class="px-3.5 py-2 rounded-xl bg-canvas border border-gray-200 text-xs font-semibold">Share</button>
+        </div>
+        <div class="flex gap-3 text-xs">
+          <button type="button" onclick="openReportModal('user', '${s.id}', '${escapeHtml(s.name)}')" class="text-muted hover:text-red-600 font-semibold">Report</button>
+          <button type="button" onclick="blockStudent('${s.id}')" class="text-muted hover:text-red-600 font-semibold">Block User</button>
         </div>
       </div>
-      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">✕</button>
-    </div>
-    <p class="text-sm text-charcoal mb-3">${escapeHtml(s.bio)}</p>
-    <div class="p-3 rounded-xl bg-limeu-soft/50 text-xs font-semibold text-charcoal mb-4">🏅 ${escapeHtml(s.achievements)}</div>
-    <div class="flex flex-wrap gap-1.5 mb-5">
-      ${s.skills.map((sk) => `<span class="px-2.5 py-1 rounded-full bg-canvas border border-gray-200 text-xs font-semibold">${escapeHtml(sk)}</span>`).join("")}
-    </div>
-    <div class="pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-2 justify-between items-center">
-      <div class="flex gap-2 w-full sm:w-auto">
-        <select id="inviteProjSel" class="px-3 py-2 rounded-xl bg-canvas border border-gray-200 text-xs flex-1">
-          ${myOwned.length ? myOwned.map((p) => `<option value="${p.id}">${escapeHtml(p.title)}</option>`).join("") : '<option value="">No projects yet</option>'}
-        </select>
-        <button type="button" onclick="inviteStudentToProj('${s.id}')" class="px-4 py-2 rounded-xl bg-charcoal text-white text-xs font-semibold">Invite</button>
-      </div>
-      <div class="flex gap-3 text-xs">
-        <button type="button" onclick="openReportModal('user', '${s.id}', '${escapeHtml(s.name)}')" class="text-muted hover:text-red-600 font-semibold">Report</button>
-        <button type="button" onclick="blockStudent('${s.id}')" class="text-muted hover:text-red-600 font-semibold">Block User</button>
-      </div>
     </div>`);
+}
+
+async function shareProfile(id) {
+  const url = `${window.location.origin}/#profile/${id}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "CollabU Builder", text: "View this builder on CollabU", url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      showToast("Profile link copied");
+    }
+  } catch (_) {
+    showToast("Profile link: " + url);
+  }
 }
 
 async function inviteStudentToProj(stuId) {
@@ -2204,6 +2241,13 @@ async function start() {
     await storeGithubSessionIfAny();
     navigateTo(parseHash(), true);
     ensureProfile();
+
+    const profileMatch = (window.location.hash || "").match(/^#profile\/(.+)$/);
+    if (profileMatch) {
+      const id = decodeURIComponent(profileMatch[1]);
+      navigateTo("teammates");
+      setTimeout(() => openStudentModal(id), 300);
+    }
   } catch (err) {
     console.error("[CollabU] startup failed", err);
     showToast("Could not load your data. Verify js/config.js and your Supabase schema.");
@@ -2295,6 +2339,7 @@ window.markAllNotificationsRead = markAllNotificationsRead;
 window.toggleSaveProject = toggleSaveProject;
 window.openProjectModal = openProjectModal;
 window.openStudentModal = openStudentModal;
+window.shareProfile = shareProfile;
 window.openPostIdeaModal = openPostIdeaModal;
 window.openOrganizeEventModal = openOrganizeEventModal;
 window.closeModal = closeModal;

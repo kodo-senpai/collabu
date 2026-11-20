@@ -61,6 +61,16 @@
     return data;
   }
 
+  async function getProfileById(userId) {
+    const { data, error } = await sb()
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
   // Fallback if the auth trigger ever fails: create the row from the client.
   async function ensureProfile(userId, email) {
     const existing = await getProfile(userId);
@@ -782,6 +792,7 @@
   window.API = {
     // profiles
     getProfile,
+    getProfileById,
     ensureProfile,
     listProfiles,
     updateProfile,
