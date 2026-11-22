@@ -205,7 +205,7 @@ function fallbackRetro(project, messages) {
 }
 
 async function retrospective(project, messages) {
-  const text = (messages ||).map((m) => `${m.sender}: ${m.text}`).join("\n");
+  const text = (messages || []).map((m) => `${m.sender}: ${m.text}`).join("\n");
   const prompt =
     `Write a concise retrospective for a student project. Include exactly 3 short lines: ` +
     `"What went well:", "What to improve:", "Next steps:". ` +
