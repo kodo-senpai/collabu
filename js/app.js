@@ -84,6 +84,9 @@ function shapeUser(p) {
     semester: p.semester || "",
     role: p.role || "Student",
     availability: p.availability || "Open to Collaborate",
+    workStyle: p.work_style || "",
+    workHours: p.work_hours || "",
+    leadership: p.leadership_style || "",
     skills: p.skills || [],
     interests: p.interests || [],
     bio: p.bio || "",
@@ -107,9 +110,11 @@ function shapeStudent(p, projects) {
     college: showEdu ? p.college || "" : "Hidden",
     dept: showEdu ? p.department || "" : "",
     sem: showEdu ? p.semester || "" : "",
-    role: p.role || "Student",
+role: p.role || "Student",
     availability: p.availability || "Open to Collaborate",
-    avatarUrl: p.avatar_url || "",
+    workStyle: p.work_style || "",
+    workHours: p.work_hours || "",
+    leadership: p.leadership_style || "",
     verified: !!p.verified,
     skills: p.skills || [],
     interests: p.interests || [],
@@ -133,7 +138,7 @@ async function loadData() {
   if (!user) throw new Error("Not authenticated");
 
 const profiles = await API.listProfiles();
-  const [profile, projects, savedIds, apps, notifs, blocked, events, communities, conns] = await Promise.all([
+  const [profile, projects, savedIds, apps, notifs, blocked, events, communities, conns, opportunities, officeHours, officeHourBookings] = await Promise.all([
     API.ensureProfile(user.id, user.email),
     API.listProjects(profiles),
     API.listSavedIds(user.id),
@@ -142,7 +147,10 @@ const profiles = await API.listProfiles();
     API.listBlockedIds(user.id),
     API.listEvents(user.id),
     API.listCommunities(user.id),
-    API.listConnections(user.id)
+    API.listConnections(user.id),
+    API.listOpportunities(),
+    API.listOfficeHours(),
+    API.listOfficeHourBookings(user.id)
   ]);
 
   const myIds = projects
@@ -164,6 +172,9 @@ const profiles = await API.listProfiles();
   state.events = events;
   state.communities = communities;
   state.connections = conns;
+  state.opportunities = opportunities || [];
+  state.officeHours = officeHours || [];
+  state.officeHourBookings = officeHourBookings || [];
   state.blockedUsers = await API.listBlockedUsers(user.id);
 
   state._knownMyProjectIds = new Set(myIds);
@@ -512,6 +523,9 @@ function matchReason(s) {
   const userInterests = (state.user?.interests || []).map((x) => x.toLowerCase());
   const sharedInterest = (s.interests || []).find((i) => userInterests.includes(i.toLowerCase()));
   if (sharedInterest) return `Shared interest in ${sharedInterest}`;
+  if (s.workStyle && state.user?.workStyle && s.workStyle === state.user.workStyle) {
+    return `Same work style (${s.workStyle})`;
+  }
   if (s.role && state.user?.role) return `${s.role} + ${state.user.role} — complementary roles`;
   return "Strong skill overlap for your projects";
 }
@@ -875,6 +889,16 @@ function renderWorkspaces() {
             <span class="text-xs font-bold text-limeu-dark">↗</span>
           </a>`).join("") : '<div class="col-span-full text-xs text-muted py-4 text-center">No shared resources yet.</div>'}
       </div>`;
+  } else if (state.activeWorkspaceTab === "build") {
+    body.innerHTML = '<div class="text-xs text-muted py-4 text-center">Loading build log…</div>';
+    API.listProjectUpdates(active.id)
+      .then((updates) => {
+        const target = document.getElementById("workspaceBody");
+        if (target && state.activeWorkspaceTab === "build" && state.activeWorkspaceId === active.id) {
+          target.innerHTML = renderBuildLogHtml(active, updates);
+        }
+      })
+      .catch(() => {});
   } else if (state.activeWorkspaceTab === "team") {
     const reqs = active.pendingRequests || [];
     body.innerHTML = `
@@ -901,6 +925,10 @@ function renderWorkspaces() {
                 </div>
               </div>`).join("") : '<div class="text-xs text-muted">No pending requests right now.</div>'}
           </div>
+        </div>
+        <div class="flex gap-2 pt-4 border-t border-gray-100">
+          <button type="button" onclick="generateTeamCharter('${active.id}')" class="px-4 py-2 rounded-full bg-limeu-soft text-charcoal text-xs font-bold">Team Charter</button>
+          <button type="button" onclick="generateRetrospective('${active.id}')" class="px-4 py-2 rounded-full bg-canvas border border-gray-200 text-xs font-bold">Retrospective</button>
         </div>
         <div class="pt-4 border-t border-gray-100 flex items-center justify-between">
           <div>
@@ -1131,6 +1159,36 @@ function renderHackathons() {
           ${c.joined ? "Joined" : "Join Space"}
         </button>
       </div>`).join("") : '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No communities yet.</div>'}</div>`;
+  } else if (state.activeHackathonTab === "opportunities") {
+    container.innerHTML = `
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg text-charcoal">Opportunity Board</h2>
+        <button type="button" onclick="openOpportunityModal()" class="px-4 py-2 rounded-full bg-charcoal text-white text-xs font-semibold">Post Opportunity</button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">${(state.opportunities || []).map((o) => `
+        <div class="bg-white rounded-2xl border border-gray-200 p-5">
+          <div class="text-xs font-bold text-limeu-dark">${escapeHtml(o.category)}</div>
+          <h3 class="font-extrabold text-base text-charcoal mt-1">${escapeHtml(o.title)}</h3>
+          <p class="text-xs text-muted mt-1">${escapeHtml(o.org)}</p>
+          <p class="text-xs text-muted mt-2">${escapeHtml(o.description)}</p>
+          ${o.contact_url ? `<a href="${escapeHtml(o.contact_url)}" target="_blank" rel="noopener noreferrer" class="inline-block mt-3 text-xs font-bold text-limeu-dark">Apply / Contact →</a>` : ""}
+        </div>`).join("") || '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No opportunities yet.</div>'}</div>`;
+  } else if (state.activeHackathonTab === "officehours") {
+    container.innerHTML = `
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg text-charcoal">Mentor Office Hours</h2>
+        <button type="button" onclick="openOfficeHourModal()" class="px-4 py-2 rounded-full bg-charcoal text-white text-xs font-semibold">Host Office Hours</button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">${(state.officeHours || []).map((o) => {
+        const booked = (state.officeHourBookings || []).includes(o.id);
+        return `<div class="bg-white rounded-2xl border border-gray-200 p-5 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="font-extrabold text-base text-charcoal">${escapeHtml(o.title)}</h3>
+            <p class="text-xs text-muted mt-1">${escapeHtml(o.mentorName)} • ${escapeHtml(o.date)} • ${escapeHtml(o.mode)}</p>
+          </div>
+          <button type="button" onclick="toggleOfficeHourBooking('${o.id}')" class="px-4 py-2 rounded-full text-xs font-semibold shrink-0 ${booked ? "bg-emerald-100 text-emerald-800" : "bg-charcoal text-white"}">${booked ? "Booked ✓" : "Book"}</button>
+        </div>`;
+      }).join("") || '<div class="col-span-full bg-white rounded-2xl border border-gray-200 p-8 text-center text-sm text-muted">No office hours yet.</div>'}</div>`;
   } else {
     const completed = state.projects.filter((p) => p.completed);
     container.innerHTML = `<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">${completed.length ? completed.map((p) => `
@@ -1773,6 +1831,7 @@ function renderDashboard() {
   const activeCount = myProjects().length;
   const completedProjects = state.projects.filter((p) => p.completed).length;
   const completedEvents = state.events.filter((e) => e.completed).length;
+  const collabScore = computeCollabScore(u);
   const stats = document.getElementById("dashStats");
   if (stats) {
     stats.innerHTML = `
@@ -1781,7 +1840,8 @@ function renderDashboard() {
       <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-limeu-dark">${completedProjects}</div><div class="text-xs text-muted mt-0.5">Completed Projects</div></div>
       <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-limeu-dark">${completedEvents}</div><div class="text-xs text-muted mt-0.5">Completed Events</div></div>
       <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-charcoal">${state.savedIds.length}</div><div class="text-xs text-muted mt-0.5">Saved Ideas</div></div>
-      <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-charcoal">${u.skills.length}</div><div class="text-xs text-muted mt-0.5">Verified Skills</div></div>`;
+      <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-charcoal">${u.skills.length}</div><div class="text-xs text-muted mt-0.5">Verified Skills</div></div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-5"><div class="text-2xl font-black text-limeu-dark">${collabScore}</div><div class="text-xs text-muted mt-0.5">Collab Score</div></div>`;
   }
 
   setValue("profName", u.name);
@@ -1790,6 +1850,9 @@ function renderDashboard() {
   setValue("profSem", u.semester);
   setValue("profRole", u.role);
   setValue("profAvailability", u.availability);
+  setValue("profWorkStyle", u.workStyle);
+  setValue("profWorkHours", u.workHours);
+  setValue("profLeadership", u.leadership);
   setValue("profSkills", (u.skills || []).join(", "));
   setValue("profInterests", (u.interests || []).join(", "));
   setValue("profAchievements", u.achievements);
@@ -1871,6 +1934,7 @@ function renderDashboard() {
   }
 
   renderConnections();
+  renderLeaderboard();
 }
 
 async function saveUserProfile(e) {
@@ -1885,6 +1949,9 @@ async function saveUserProfile(e) {
     semester: (document.getElementById("profSem") || {}).value.trim(),
     role: (document.getElementById("profRole") || {}).value || "Student",
     availability: (document.getElementById("profAvailability") || {}).value || "Open to Collaborate",
+    work_style: (document.getElementById("profWorkStyle") || {}).value || "",
+    work_hours: (document.getElementById("profWorkHours") || {}).value || "",
+    leadership_style: (document.getElementById("profLeadership") || {}).value || "",
     skills: ((document.getElementById("profSkills") || {}).value || "").split(",").map((s) => s.trim()).filter(Boolean),
     interests: ((document.getElementById("profInterests") || {}).value || "").split(",").map((s) => s.trim()).filter(Boolean),
     achievements: (document.getElementById("profAchievements") || {}).value.trim(),
@@ -2066,6 +2133,7 @@ function openProjectModal(projId) {
     </div>
     <p class="text-sm text-charcoal leading-relaxed mb-2">${escapeHtml(p.description)}</p>
     <div id="projectAiSummary" class="hidden mb-4 text-xs p-3 rounded-xl bg-limeu-soft/50 border border-limeu/30 text-charcoal whitespace-pre-line"></div>
+    ${p.completed ? `<button type="button" onclick="openImpactReport('${p.id}')" class="w-full py-2.5 rounded-xl bg-limeu-soft text-charcoal text-xs font-semibold mb-3">View Impact Report</button>` : ""}
     <div class="grid sm:grid-cols-2 gap-3 mb-5 text-xs">
       <div class="p-3 rounded-xl bg-canvas border border-gray-200"><span class="font-bold block text-charcoal mb-1">Skills Needed</span>${p.skills.map((s) => escapeHtml(s)).join(", ")}</div>
       <div class="p-3 rounded-xl bg-canvas border border-gray-200"><span class="font-bold block text-charcoal mb-1">Open Roles (${p.members.length}/${p.teamSize} filled)</span>${p.neededRoles.map((r) => escapeHtml(r)).join(", ")}</div>
@@ -2159,6 +2227,14 @@ async function openStudentModal(stuId) {
         ${s.skills.map((sk) => `<span class="px-2.5 py-1 rounded-full bg-canvas border border-gray-200 text-xs font-semibold">${escapeHtml(sk)}</span>`).join("")}
       </div>
 
+      <div class="flex gap-2 mb-4">
+        <select id="endorseSkillSel" class="flex-1 px-3 py-2 rounded-xl bg-canvas border border-gray-200 text-xs">
+          ${s.skills.map((sk) => `<option>${escapeHtml(sk)}</option>`).join("")}
+        </select>
+        <button type="button" onclick="endorseSkill('${s.id}')" class="px-3.5 py-2 rounded-xl bg-canvas border border-gray-200 text-xs font-semibold">Endorse</button>
+        <button type="button" onclick="openPassport('${s.id}')" class="px-3.5 py-2 rounded-xl bg-charcoal text-white text-xs font-semibold">Passport</button>
+      </div>
+
       <div class="pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-2 justify-between items-center">
         <div class="flex gap-2 w-full sm:w-auto">
           <select id="inviteProjSel" class="px-3 py-2 rounded-xl bg-canvas border border-gray-200 text-xs flex-1">
@@ -2246,6 +2322,300 @@ async function submitNewEvent(e) {
     closeModal();
     renderHackathons();
     showToast("Event published to community!");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+/* ------------------------------------------------------- standout features */
+
+function computeCollabScore(profile) {
+  const u = profile || state.user;
+  if (!u) return 0;
+  let score = 0;
+  const completed = state.projects.filter(
+    (p) => p.completed && (p.creatorId === u.id || (p.memberIds || []).includes(u.id))
+  ).length;
+  score += Math.min(30, completed * 10);
+  score += Math.min(20, (u.skills || []).length * 2);
+  const accepted = (state.connections || []).filter((c) => c.status === "accepted").length;
+  score += Math.min(15, accepted * 3);
+  const events = (state.events || []).filter((e) => e.registered).length;
+  score += Math.min(15, events * 5);
+  let completeness = 0;
+  if (u.name) completeness += 5;
+  if (u.college) completeness += 5;
+  if (u.bio) completeness += 5;
+  if ((u.skills || []).length) completeness += 5;
+  score += Math.min(20, completeness);
+  return Math.max(0, Math.min(100, score));
+}
+
+async function openPassport(userId) {
+  let p = state.students.find((s) => s.id === userId);
+  if (!p) {
+    try {
+      const raw = await API.getProfileById(userId);
+      if (!raw) return;
+      p = shapeStudent(raw, state.projects);
+    } catch (_) {
+      return;
+    }
+  }
+  let endorsements = {};
+  try {
+    endorsements = await API.listSkillEndorsements(userId);
+  } catch (_) {}
+
+  const score = computeCollabScore(p);
+  const avatar = p.avatarUrl
+    ? `<img src="${p.avatarUrl}" alt="${escapeHtml(p.name)}" class="w-16 h-16 rounded-full object-cover ring-2 ring-limeu/50" />`
+    : `<div class="w-16 h-16 rounded-full bg-charcoal text-limeu font-black flex items-center justify-center">${escapeHtml(p.initials)}</div>`;
+
+  openModal(`
+    <div class="animate-in">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          ${avatar}
+          <div>
+            <h2 class="text-xl font-black text-charcoal">${escapeHtml(p.name)} ${p.verified ? '<span class="text-emerald-600 text-sm">✓</span>' : ""}</h2>
+            <p class="text-xs text-muted">${escapeHtml(p.college)} • CGCU</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-charcoal">${score}</div><div class="text-[10px] text-muted">Collab Score</div></div>
+        <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-charcoal">${p.projectsCount || 0}</div><div class="text-[10px] text-muted">Projects</div></div>
+        <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-limeu-dark">${(p.skills || []).length}</div><div class="text-[10px] text-muted">Skills</div></div>
+      </div>
+      <p class="text-sm text-charcoal mb-3">${escapeHtml(p.bio)}</p>
+      <div class="flex flex-wrap gap-1.5 mb-4">
+        ${(p.skills || []).map((sk) => `<span class="px-2.5 py-1 rounded-full bg-canvas border border-gray-200 text-xs font-semibold">${escapeHtml(sk)}${endorsements[sk] ? ` <span class="text-limeu-dark">+${endorsements[sk]}</span>` : ""}</span>`).join("")}
+      </div>
+      <div class="flex gap-2 pt-3 border-t border-gray-100">
+        <button type="button" onclick="shareProfile('${p.id}')" class="flex-1 py-2.5 rounded-xl bg-charcoal text-white text-xs font-semibold">Share Passport</button>
+        <button type="button" onclick="closeModal(); navigateTo('teammates')" class="px-4 py-2.5 rounded-xl bg-canvas border border-gray-200 text-xs font-semibold">Find Team</button>
+      </div>
+    </div>`);
+}
+
+function renderLeaderboard() {
+  const el = document.getElementById("leaderboardList");
+  if (!el || !state.user) return;
+  const builders = state.students.map((s) => Object.assign({}, s, { score: computeCollabScore(s) }));
+  builders.push({ id: state.user.id, name: state.user.name, initials: state.user.initials, college: state.user.college, score: computeCollabScore(state.user) });
+  builders.sort((a, b) => b.score - a.score);
+
+  el.innerHTML = builders
+    .slice(0, 5)
+    .map(
+      (b, i) => `
+      <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-canvas border border-gray-200">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="w-5 text-center text-xs font-black text-muted">${i + 1}</span>
+          <div class="w-7 h-7 rounded-full bg-charcoal text-limeu font-bold text-[10px] flex items-center justify-center shrink-0">${escapeHtml(b.initials)}</div>
+          <div class="min-w-0">
+            <div class="text-xs font-bold text-charcoal truncate">${escapeHtml(b.name)}</div>
+            <div class="text-[10px] text-muted truncate">${escapeHtml(b.college)}</div>
+          </div>
+        </div>
+        <span class="text-xs font-black text-limeu-dark">${b.score}</span>
+      </div>`
+    )
+    .join("");
+}
+
+async function endorseSkill(studentId) {
+  const skill = (document.getElementById("endorseSkillSel") || {}).value;
+  if (!skill) return;
+  try {
+    await API.endorseSkill(state.user.id, studentId, skill);
+    showToast("Endorsement sent for " + skill);
+    openStudentModal(studentId);
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function openImpactReport(projId) {
+  const p = state.projects.find((x) => x.id === projId);
+  if (!p) return;
+  let summary = "";
+  try {
+    summary = await AI.summarizeProject(p);
+  } catch (_) {
+    summary = p.description || "A student-built project.";
+  }
+  const done = (p.tasks || []).filter((t) => t.status === "Done").length;
+  openModal(`
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-black text-charcoal">Impact Report — ${escapeHtml(p.title)}</h2>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
+    </div>
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-charcoal">${p.members.length}</div><div class="text-[10px] text-muted">Teammates</div></div>
+      <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-charcoal">${done}</div><div class="text-[10px] text-muted">Tasks Done</div></div>
+      <div class="p-3 rounded-xl bg-canvas border border-gray-200"><div class="text-lg font-black text-limeu-dark">${computeCollabScore(p)}</div><div class="text-[10px] text-muted">Collab Score</div></div>
+    </div>
+    <p class="text-sm text-charcoal whitespace-pre-line mb-4">${escapeHtml(summary)}</p>
+    <button type="button" onclick="shareProfile('${p.creatorId}')" class="w-full py-2.5 rounded-xl bg-charcoal text-white text-xs font-semibold">Share Project</button>`);
+}
+
+async function generateTeamCharter(projId) {
+  const p = state.projects.find((x) => x.id === projId);
+  if (!p) return;
+  try {
+    const text = await AI.teamCharter(p, p.members);
+    await API.createProjectUpdate(projId, state.user.id, "charter", text);
+    openModal(`
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-black text-charcoal">Team Charter — ${escapeHtml(p.title)}</h2>
+        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
+      </div>
+      <div class="text-sm text-charcoal whitespace-pre-line">${escapeHtml(text)}</div>`);
+    showToast("Team charter generated");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function generateRetrospective(projId) {
+  const p = state.projects.find((x) => x.id === projId);
+  if (!p) return;
+  try {
+    const text = await AI.retrospective(p, p.messages);
+    await API.createProjectUpdate(projId, state.user.id, "retrospective", text);
+    openModal(`
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-black text-charcoal">Retrospective — ${escapeHtml(p.title)}</h2>
+        <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
+      </div>
+      <div class="text-sm text-charcoal whitespace-pre-line">${escapeHtml(text)}</div>`);
+    showToast("Retrospective generated");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+function renderBuildLogHtml(project, updates) {
+  const rows = (updates || [])
+    .map((u) => {
+      const author =
+        u.author_id === state.user.id
+          ? state.user.name
+          : state.students.find((s) => s.id === u.author_id)?.name || "Teammate";
+      return `<div class="p-3 rounded-xl bg-canvas border border-gray-200">
+        <div class="flex items-center justify-between text-[11px] mb-1">
+          <span class="font-bold text-charcoal">${escapeHtml(author)}</span>
+          <span class="text-muted">${escapeHtml(API.formatTime(u.created_at))}</span>
+        </div>
+        <div class="text-xs text-charcoal">${escapeHtml(u.text)}</div>
+      </div>`;
+    })
+    .join("");
+
+  return `
+    <form onsubmit="addBuildUpdate(event, '${project.id}')" class="flex gap-2 mb-4">
+      <input id="buildUpdateInput" type="text" required placeholder="Share a build update or milestone..." class="flex-1 px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200 text-sm" />
+      <button type="submit" class="px-4 py-2 rounded-xl bg-charcoal text-white text-xs font-semibold">Post</button>
+    </form>
+    <div class="space-y-2 max-h-80 overflow-y-auto">${rows || '<div class="text-xs text-muted py-4 text-center">No build updates yet.</div>'}</div>`;
+}
+
+async function addBuildUpdate(e, projId) {
+  e.preventDefault();
+  const text = (document.getElementById("buildUpdateInput") || {}).value.trim();
+  if (!text) return;
+  try {
+    await API.createProjectUpdate(projId, state.user.id, "update", text);
+    renderWorkspaces();
+    showToast("Build update posted");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+function openOpportunityModal() {
+  openModal(`
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black text-charcoal">Post an Opportunity</h2>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
+    </div>
+    <form onsubmit="submitOpportunity(event)" class="space-y-3 text-sm">
+      <div><label class="block text-xs font-bold text-muted uppercase mb-1">Title</label><input id="oppTitle" type="text" required class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" /></div>
+      <div><label class="block text-xs font-bold text-muted uppercase mb-1">Organization</label><input id="oppOrg" type="text" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" /></div>
+      <div><label class="block text-xs font-bold text-muted uppercase mb-1">Category</label><select id="oppCategory" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200"><option>Internship</option><option>Freelance</option><option>Research</option><option>Open Source</option><option>Volunteer</option></select></div>
+      <div><label class="block text-xs font-bold text-muted uppercase mb-1">Description</label><textarea id="oppDesc" rows="3" required class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200"></textarea></div>
+      <div><label class="block text-xs font-bold text-muted uppercase mb-1">Contact URL (optional)</label><input id="oppUrl" type="url" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" /></div>
+      <button type="submit" class="w-full py-2.5 rounded-xl bg-charcoal text-white text-xs font-bold">Publish Opportunity →</button>
+    </form>`);
+}
+
+async function submitOpportunity(e) {
+  e.preventDefault();
+  const payload = {
+    title: (document.getElementById("oppTitle") || {}).value.trim(),
+    org: (document.getElementById("oppOrg") || {}).value.trim(),
+    category: (document.getElementById("oppCategory") || {}).value,
+    description: (document.getElementById("oppDesc") || {}).value.trim(),
+    contactUrl: (document.getElementById("oppUrl") || {}).value.trim(),
+    createdBy: state.user.id
+  };
+  if (!payload.title) return;
+  try {
+    await API.createOpportunity(payload);
+    await refreshAll();
+    closeModal();
+    showToast("Opportunity published");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+function openOfficeHourModal() {
+  openModal(`
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black text-charcoal">Host Office Hours</h2>
+      <button type="button" onclick="closeModal()" class="p-1.5 rounded-full hover:bg-canvas text-muted">${icon("close", "w-4 h-4")}</button>
+    </div>
+    <form onsubmit="submitOfficeHour(event)" class="space-y-3 text-sm">
+      <div><label class="block text-xs font-bold text-muted uppercase mb-1">Title</label><input id="ohTitle" type="text" required class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" /></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs font-bold text-muted uppercase mb-1">Date</label><input id="ohDate" type="text" required placeholder="e.g. Dec 5, 6 PM" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" /></div>
+        <div><label class="block text-xs font-bold text-muted uppercase mb-1">Mode</label><select id="ohMode" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200"><option>Online</option><option>In-Person</option></select></div>
+      </div>
+      <div><label class="block text-xs font-bold text-muted uppercase mb-1">Seats</label><input id="ohSeats" type="number" min="1" value="5" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200" /></div>
+      <button type="submit" class="w-full py-2.5 rounded-xl bg-charcoal text-white text-xs font-bold">Publish Office Hours →</button>
+    </form>`);
+}
+
+async function submitOfficeHour(e) {
+  e.preventDefault();
+  const payload = {
+    mentorId: state.user.id,
+    title: (document.getElementById("ohTitle") || {}).value.trim(),
+    date: (document.getElementById("ohDate") || {}).value.trim(),
+    mode: (document.getElementById("ohMode") || {}).value,
+    seats: Number((document.getElementById("ohSeats") || {}).value) || 5
+  };
+  if (!payload.title) return;
+  try {
+    await API.createOfficeHour(payload);
+    await refreshAll();
+    closeModal();
+    showToast("Office hours published");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function toggleOfficeHourBooking(id) {
+  const booked = (state.officeHourBookings || []).includes(id);
+  try {
+    await API.setOfficeHourBooking(id, state.user.id, !booked);
+    await refreshAll();
+    showToast(booked ? "Booking cancelled" : "Seat booked");
   } catch (err) {
     toastError(err);
   }

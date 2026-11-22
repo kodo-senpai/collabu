@@ -787,6 +787,129 @@
     if (error) throw error;
   }
 
+  // Skill endorsements
+  async function listSkillEndorsements(userId) {
+    const { data, error } = await sb().from("skill_endorsements").select("skill").eq("to_user", userId);
+    if (error) throw error;
+    const counts = {};
+    (data || []).forEach((r) => {
+      counts[r.skill] = (counts[r.skill] || 0) + 1;
+    });
+    return counts;
+  }
+
+  async function endorseSkill(fromUser, toUser, skill) {
+    const { error } = await sb().from("skill_endorsements").insert({
+      skill,
+      from_user: fromUser,
+      to_user: toUser
+    });
+    if (error && error.code !== "23505") throw error;
+  }
+
+  // Project updates / build log / charter / retrospective
+  async function listProjectUpdates(projectId) {
+    const { data, error } = await sb()
+      .from("project_updates")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function createProjectUpdate(projectId, authorId, kind, text) {
+    const { error } = await sb().from("project_updates").insert({
+      project_id: projectId,
+      author_id: authorId,
+      kind,
+      text
+    });
+    if (error) throw error;
+  }
+
+  // Opportunities
+  async function listOpportunities() {
+    const { data, error } = await sb()
+      .from("opportunities")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function createOpportunity(payload) {
+    const { error } = await sb().from("opportunities").insert({
+      title: payload.title,
+      org: payload.org || "",
+      description: payload.description || "",
+      category: payload.category || "Internship",
+      contact_url: payload.contactUrl || null,
+      created_by: payload.createdBy
+    });
+    if (error) throw error;
+  }
+
+  // Mentor office hours
+  async function listOfficeHours() {
+    const { data, error } = await sb()
+      .from("office_hours")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+
+    const mentorIds = [...new Set((data || []).map((o) => o.mentor_id))];
+    let profiles = [];
+    if (mentorIds.length) {
+      const { data: p } = await sb().from("profiles").select("id, name, college").in("id", mentorIds);
+      profiles = p || [];
+    }
+
+    return (data || []).map((o) => {
+      const m = profiles.find((p) => p.id === o.mentor_id) || {};
+      return Object.assign({}, o, { mentorName: m.name || "Mentor", mentorCollege: m.college || "" });
+    });
+  }
+
+  async function createOfficeHour(payload) {
+    const { error } = await sb().from("office_hours").insert({
+      mentor_id: payload.mentorId,
+      title: payload.title,
+      date: payload.date || "",
+      mode: payload.mode || "Online",
+      seats: payload.seats || 5
+    });
+    if (error) throw error;
+  }
+
+  async function setOfficeHourBooking(officeHourId, userId, booked) {
+    if (booked) {
+      const { error } = await sb()
+        .from("office_hours_bookings")
+        .insert({ office_hour_id: officeHourId, user_id: userId });
+      if (error && error.code !== "23505") throw error;
+    } else {
+      const { error } = await sb()
+        .from("office_hours_bookings")
+        .delete()
+        .eq("office_hour_id", officeHourId)
+        .eq("user_id", userId);
+      if (error) throw error;
+    }
+  }
+
+  async function listOfficeHourBookings(userId) {
+    const { data, error } = await sb()
+      .from("office_hours_bookings")
+      .select("office_hour_id")
+      .eq("user_id", userId);
+    if (error) throw error;
+    return (data || []).map((r) => r.office_hour_id);
+  }
+
   /* ---------------------------------------------------------------- exports */
 
   window.API = {
@@ -838,6 +961,16 @@
     setEventCompleted,
     listCommunities,
     setCommunityMembership,
+    listSkillEndorsements,
+    endorseSkill,
+    listProjectUpdates,
+    createProjectUpdate,
+    listOpportunities,
+    createOpportunity,
+    listOfficeHours,
+    createOfficeHour,
+    setOfficeHourBooking,
+    listOfficeHourBookings,
     storeGithubConnection,
     getGithubConnection,
     getChallengeData,

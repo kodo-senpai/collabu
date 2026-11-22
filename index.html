@@ -564,6 +564,7 @@
             <button type="button" data-wstab="tasks" onclick="switchWorkspaceTab('tasks')" class="ws-tab-btn px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl border-b-2 border-transparent">✅ Milestones & Tasks</button>
             <button type="button" data-wstab="resources" onclick="switchWorkspaceTab('resources')" class="ws-tab-btn px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl border-b-2 border-transparent">🔗 Shared Resources</button>
             <button type="button" data-wstab="team" onclick="switchWorkspaceTab('team')" class="ws-tab-btn px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl border-b-2 border-transparent"><span class="inline-flex items-center gap-1.5"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Team & Requests</span></button>
+            <button type="button" data-wstab="build" onclick="switchWorkspaceTab('build')" class="ws-tab-btn px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl border-b-2 border-transparent">Build Log</button>
           </div>
 
           <div id="workspaceBody" class="p-5 sm:p-6"></div>
@@ -588,6 +589,8 @@
         <button type="button" data-htab="events" onclick="switchHackathonTab('events')" class="htab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-white border border-gray-200">🏆 Hackathons & Workshops</button>
         <button type="button" data-htab="communities" onclick="switchHackathonTab('communities')" class="htab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-white border border-gray-200"><span class="inline-flex items-center gap-1.5"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18"/><path d="M12 3a15 15 0 0 0 0 18"/></svg>Student Communities</span></button>
         <button type="button" data-htab="showcase" onclick="switchHackathonTab('showcase')" class="htab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-white border border-gray-200"><span class="inline-flex items-center gap-1.5"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c1.5 1.5 3.5 1.5 5 0L21 5l-3-3-11.5 11.5c-1.5 1.5-1.5 3.5 0 5z"/><path d="M15 9l-3-3"/><path d="M9 15l-3-3"/></svg>Completed Project Showcase</span></button>
+        <button type="button" data-htab="opportunities" onclick="switchHackathonTab('opportunities')" class="htab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-white border border-gray-200">Opportunities</button>
+        <button type="button" data-htab="officehours" onclick="switchHackathonTab('officehours')" class="htab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-white border border-gray-200">Office Hours</button>
       </div>
 
       <div id="hackathonsContent"></div>
@@ -668,6 +671,33 @@
                   <option>Hackathon Ready</option>
                 </select>
               </div>
+              <div>
+                <label class="block text-xs font-bold text-muted uppercase mb-1">Work Style</label>
+                <select id="profWorkStyle" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200">
+                  <option value="">Select...</option>
+                  <option>Async-first</option>
+                  <option>Live collaboration</option>
+                  <option>Hybrid</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-muted uppercase mb-1">Weekly Hours</label>
+                <select id="profWorkHours" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200">
+                  <option value="">Select...</option>
+                  <option>5-10h/week</option>
+                  <option>10-20h/week</option>
+                  <option>20+ h/week</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-muted uppercase mb-1">Leadership Style</label>
+                <select id="profLeadership" class="w-full px-3.5 py-2.5 rounded-xl bg-canvas border border-gray-200">
+                  <option value="">Select...</option>
+                  <option>Maker</option>
+                  <option>Leader</option>
+                  <option>Both</option>
+                </select>
+              </div>
             </div>
             <div>
               <label class="block text-xs font-bold text-muted uppercase mb-1">Skills (comma-separated — powers Smart Match)</label>
@@ -736,6 +766,14 @@
               </div>
             </div>
             <div id="connList" class="space-y-3 max-h-72 overflow-y-auto"></div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-bold text-lg text-charcoal">CGCU Leaderboard</h2>
+              <span class="text-xs text-muted">Top builders</span>
+            </div>
+            <div id="leaderboardList" class="space-y-2"></div>
           </div>
         </div>
       </div>

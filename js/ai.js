@@ -177,11 +177,49 @@
     return await cached(prompt, () => fallbackProject(project));
   }
 
-  window.AI = {
+  function fallbackCharter(project, members) {
+  return (
+    `Mission: ship ${project.title}.\n` +
+    `Roles: ${(project.neededRoles || []).join(", ") || "Builder, Designer, QA"}.\n` +
+    `Communication: async updates in the workspace + one weekly sync.\n` +
+    `Deadlines: agree on a milestone every Friday.\n` +
+    `Conflict resolution: discuss blockers in the team chat; escalate to the creator if unresolved.`
+  );
+}
+
+async function teamCharter(project, members) {
+  const prompt =
+    `Write a concise team charter for a student project. Include exactly 5 short lines: ` +
+    `"Mission:", "Roles:", "Communication:", "Deadlines:", "Conflict resolution:". ` +
+    `Project: ${project.title}; team: ${(members || []).join(", ")}.`;
+  return await cached(prompt, () => fallbackCharter(project, members));
+}
+
+function fallbackRetro(project, messages) {
+  const last = (messages || []).slice(-3).map((m) => m.text).join("; ");
+  return (
+    `What went well: shipped ${project.title} with ${(project.members || []).length} teammates.\n` +
+    `What to improve: ${last || "clarify ownership earlier"}.\n` +
+    `Next steps: document the setup and publish the repo.`
+  );
+}
+
+async function retrospective(project, messages) {
+  const text = (messages ||).map((m) => `${m.sender}: ${m.text}`).join("\n");
+  const prompt =
+    `Write a concise retrospective for a student project. Include exactly 3 short lines: ` +
+    `"What went well:", "What to improve:", "Next steps:". ` +
+    `Project: ${project.title}; recent chat: ${text.slice(0, 1200)}.`;
+  return await cached(prompt, () => fallbackRetro(project, messages));
+}
+
+window.AI = {
     coachPitch,
     validateIdea,
     summarizeChat,
     summarizeProject,
+    teamCharter,
+    retrospective,
     isRateLimited: () => rateLimited()
   };
 })();
