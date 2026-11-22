@@ -10,7 +10,7 @@
 
 /* ------------------------------------------------------------------ state */
 
-const VALID_VIEWS = ["home", "explore", "teammates", "workspaces", "hackathons", "challenges", "dashboard"];
+const VALID_VIEWS = ["home", "explore", "teammates", "connections", "workspaces", "hackathons", "challenges", "dashboard"];
 
 const state = {
   currentView: "home",
@@ -615,6 +615,51 @@ async function connectStudent(id) {
     await API.connect(state.user.id, id);
     showToast("Connection request sent to " + (student ? student.name : "student"));
     scheduleRefresh();
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function acceptConnectionRequest(id) {
+  const conn = state.connections.find((c) => c.id === id);
+  try {
+    await API.updateConnection(id, "accepted");
+    if (conn) await API.notifyUser(conn.userId, "accepted your connection request.");
+    await refreshAll();
+    showToast("Connection accepted");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function declineConnectionRequest(id) {
+  const conn = state.connections.find((c) => c.id === id);
+  try {
+    await API.updateConnection(id, "rejected");
+    if (conn) await API.notifyUser(conn.userId, "declined your connection request.");
+    await refreshAll();
+    showToast("Connection declined");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function cancelConnectionRequest(id) {
+  try {
+    await API.deleteConnection(id);
+    await refreshAll();
+    showToast("Connection request cancelled");
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+async function removeConnection(id) {
+  if (!confirm("Remove this connection?")) return;
+  try {
+    await API.deleteConnection(id);
+    await refreshAll();
+    showToast("Connection removed");
   } catch (err) {
     toastError(err);
   }
@@ -1632,6 +1677,80 @@ function setChecked(id, value) {
   if (el) el.checked = !!value;
 }
 
+function renderConnectionsPage() {
+  const el = document.getElementById("connectionsPage");
+  if (!el) return;
+
+  const conns = state.connections || [];
+  const incoming = conns.filter((c) => c.direction === "incoming" && c.status === "pending");
+  const outgoing = conns.filter((c) => c.direction === "outgoing" && c.status === "pending");
+  const accepted = conns.filter((c) => c.status === "accepted");
+
+  const row = (c, actions) => `
+    <div class="p-4 rounded-2xl bg-white border border-gray-200 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-full bg-charcoal text-limeu font-black text-xs flex items-center justify-center shrink-0">${escapeHtml(c.initials || "ST")}</div>
+        <div class="min-w-0">
+          <div class="text-sm font-bold text-charcoal truncate">${escapeHtml(c.name)}</div>
+          <div class="text-[11px] text-muted truncate">${escapeHtml(c.college || "")}${c.direction === "incoming" ? " • incoming" : " • outgoing"}</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">${actions}</div>
+    </div>`;
+
+  const section = (title, list, render) => `
+    <div class="bg-white rounded-2xl border border-gray-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold text-sm text-charcoal">${title}</h2>
+        <span class="text-xs text-muted">${list.length}</span>
+      </div>
+      <div class="space-y-2">${list.length ? list.map(render).join("") : '<div class="text-xs text-muted py-3 text-center">Nothing here yet.</div>'}</div>
+    </div>`;
+
+  el.innerHTML = `
+    <div class="mb-6">
+      <h1 class="text-3xl font-black tracking-tight text-charcoal">Connections</h1>
+      <p class="text-sm text-muted mt-1">Manage incoming requests, outgoing invites, and your builder network.</p>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-charcoal">${incoming.length}</div><div class="text-xs text-muted">Incoming</div></div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-charcoal">${outgoing.length}</div><div class="text-xs text-muted">Outgoing</div></div>
+      <div class="bg-white rounded-2xl border border-gray-200 p-4"><div class="text-2xl font-black text-limeu-dark">${accepted.length}</div><div class="text-xs text-muted">Connected</div></div>
+    </div>
+    <div class="space-y-5">
+      ${section(
+        "Incoming Requests",
+        incoming,
+        (c) =>
+          row(
+            c,
+            `<button type="button" onclick="acceptConnectionRequest('${c.id}')" class="px-3 py-1.5 rounded-lg bg-charcoal text-white text-[11px] font-semibold">Accept</button>
+             <button type="button" onclick="declineConnectionRequest('${c.id}')" class="px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-[11px] font-semibold">Decline</button>`
+          )
+      )}
+      ${section(
+        "Outgoing Requests",
+        outgoing,
+        (c) =>
+          row(
+            c,
+            `<span class="text-[11px] font-semibold text-amber-700">Pending</span>
+             <button type="button" onclick="cancelConnectionRequest('${c.id}')" class="px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-[11px] font-semibold">Cancel</button>`
+          )
+      )}
+      ${section(
+        "Connected",
+        accepted,
+        (c) =>
+          row(
+            c,
+            `<button type="button" onclick="openStudentModal('${c.userId}')" class="px-3 py-1.5 rounded-lg bg-charcoal text-white text-[11px] font-semibold">View</button>
+             <button type="button" onclick="removeConnection('${c.id}')" class="px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-[11px] font-semibold">Remove</button>`
+          )
+      )}
+    </div>`;
+}
+
 function renderDashboard() {
   if (!state.user) return;
   const u = state.user;
@@ -2147,6 +2266,9 @@ function renderCurrentView() {
     case "teammates":
       renderTeammates();
       break;
+    case "connections":
+      renderConnectionsPage();
+      break;
     case "workspaces":
       renderWorkspaces();
       break;
@@ -2338,6 +2460,10 @@ window.refreshChallenge = refreshChallenge;
 window.copyInviteCode = copyInviteCode;
 window.toggleCommunity = toggleCommunity;
 window.connectStudent = connectStudent;
+window.acceptConnectionRequest = acceptConnectionRequest;
+window.declineConnectionRequest = declineConnectionRequest;
+window.cancelConnectionRequest = cancelConnectionRequest;
+window.removeConnection = removeConnection;
 window.acceptConnection = acceptConnection;
 window.declineConnection = declineConnection;
 window.enablePushNotifications = enablePushNotifications;

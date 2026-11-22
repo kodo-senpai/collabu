@@ -98,6 +98,7 @@
         <button type="button" data-nav="home" onclick="navigateTo('home')" class="nav-btn hover:text-charcoal transition-colors">Home</button>
         <button type="button" data-nav="explore" onclick="navigateTo('explore')" class="nav-btn hover:text-charcoal transition-colors">Explore Ideas</button>
         <button type="button" data-nav="teammates" onclick="navigateTo('teammates')" class="nav-btn hover:text-charcoal transition-colors">Find Teammates</button>
+        <button type="button" data-nav="connections" onclick="navigateTo('connections')" class="nav-btn hover:text-charcoal transition-colors">Connections</button>
         <button type="button" data-nav="workspaces" onclick="navigateTo('workspaces')" class="nav-btn hover:text-charcoal transition-colors">Workspaces</button>
         <button type="button" data-nav="hackathons" onclick="navigateTo('hackathons')" class="nav-btn hover:text-charcoal transition-colors">Hackathons</button>
         <button type="button" data-nav="challenges" onclick="navigateTo('challenges')" class="nav-btn hover:text-charcoal transition-colors">Streak Challenge</button>
@@ -156,6 +157,7 @@
       <button type="button" onclick="openPostIdeaModal(); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Post an Idea</button>
       <button type="button" onclick="navigateTo('explore'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Explore Ideas</button>
       <button type="button" onclick="navigateTo('teammates'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Find Teammates</button>
+      <button type="button" onclick="navigateTo('connections'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Connections</button>
       <button type="button" onclick="navigateTo('workspaces'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Workspaces</button>
       <button type="button" onclick="navigateTo('hackathons'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Hackathons & Communities</button>
       <button type="button" onclick="navigateTo('challenges'); toggleMobileMenu()" class="block w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canvas">Streak Challenge</button>
@@ -536,6 +538,11 @@
       <div id="teammatesGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     </section>
 
+    <!-- ==================== VIEW: CONNECTIONS ==================== -->
+    <section id="view-connections" class="view-section hidden max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-in">
+      <div id="connectionsPage"></div>
+    </section>
+
     <!-- ==================== VIEW 4: PROJECT WORKSPACES ==================== -->
     <section id="view-workspaces" class="view-section hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-in">
       <div class="mb-6">
@@ -723,7 +730,10 @@
           <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
             <div class="flex items-center justify-between mb-3">
               <h2 class="font-bold text-lg text-charcoal">Connections</h2>
-              <span id="connCount" class="text-xs text-muted"></span>
+              <div class="flex items-center gap-2">
+                <span id="connCount" class="text-xs text-muted"></span>
+                <button type="button" onclick="navigateTo('connections')" class="text-xs font-semibold text-limeu-dark">Manage all →</button>
+              </div>
             </div>
             <div id="connList" class="space-y-3 max-h-72 overflow-y-auto"></div>
           </div>
